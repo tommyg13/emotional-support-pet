@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
+  body { display: grid; place-items: center; }
+  #b {
+    width: 64px; height: 64px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: radial-gradient(circle at 32% 28%, #ffb3c7, #ff5c8a 70%);
+    box-shadow: 0 6px 18px rgba(255, 70, 120, .45), inset 0 -4px 8px rgba(0,0,0,.12);
+    display: grid; place-items: center;
+    transition: transform .15s ease;
+    animation: beat 2.6s ease-in-out infinite;
+  }
+  #b:hover { transform: scale(1.12); }
+  #b:active { transform: scale(.94); }
+  svg { width: 30px; height: 30px; pointer-events: none; }
+  @keyframes beat { 0%, 80%, 100% { scale: 1; } 88% { scale: 1.08; } 94% { scale: .98; } }
+  @media (prefers-reduced-motion: reduce) { #b { animation: none; } }
+</style>
+</head>
+<body>
+<button id="b" title="Emotional support (right-click for options)">
+  <svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>
+</button>
+<script>
+  const b = document.getElementById('b');
+  let start = null, moved = false;
+  b.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    start = { x: e.screenX, y: e.screenY };
+    moved = false;
+    b.setPointerCapture(e.pointerId);
+    api.dragStart();
+  });
+  b.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.screenX - start.x, dy = e.screenY - start.y;
+    if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+    if (moved) api.dragMove(dx, dy);
+  });
+  b.addEventListener('pointerup', () => {
+    if (!start) return;
+    start = null;
+    if (!moved) api.summon();
+  });
+  b.addEventListener('contextmenu', (e) => { e.preventDefault(); api.buttonMenu(); });
+</script>
+</body>
+</html>

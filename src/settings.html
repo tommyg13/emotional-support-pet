@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Choose your support buddy</title>
+<style>
+  :root { --bg:#fff7f2; --ink:#3a2a2a; --muted:#8a7470; --pink:#ff5c8a; --line:#f1ddd4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#241a1c; --ink:#f6e8e4; --muted:#b59d98; --line:#4a3639; } }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:28px; background:var(--bg); color:var(--ink); font: 15px/1.5 "Avenir Next", "Segoe UI", system-ui, sans-serif; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.01em; }
+  p.sub { margin: 0 0 22px; color: var(--muted); }
+  h2 { font-size: 15px; margin: 24px 0 10px; color: var(--muted); font-weight: 600; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .card { border:2px solid var(--line); border-radius:16px; padding:8px 8px 10px; text-align:center; cursor:pointer; background: transparent; color: inherit; font: inherit; }
+  .card:hover { border-color: #ffb3c7; }
+  .card:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
+  .card.sel { border-color: var(--pink); background: rgba(255,92,138,.09); }
+  .thumb { width:100%; aspect-ratio:1; overflow:hidden; }
+  .thumb svg, .thumb img { width:100%; height:100%; object-fit:contain; display:block; }
+  .dice { display:grid; place-items:center; font-size:54px; }
+  .name { margin-top:6px; font-size:13px; }
+  .row { display:flex; align-items:center; gap:14px; margin-top: 26px; flex-wrap: wrap; }
+  input[type=range] { accent-color: var(--pink); width: 180px; }
+  button.act { border:0; border-radius:999px; padding:10px 18px; font: inherit; font-weight:600; cursor:pointer; background:var(--pink); color:#fff; }
+  button.act.alt { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+  .empty { color: var(--muted); font-size: 14px; }
+  @media (prefers-reduced-motion: reduce) { .thumb svg * { animation: none !important; } }
+</style>
+</head>
+<body>
+<h1>Choose your support buddy</h1>
+<p class="sub">Click one to pick it. The next press of the heart button brings it up.</p>
+<div id="groups"></div>
+
+<div class="row">
+  <label>Stays on screen for <b id="durLabel"></b> s <br><input id="dur" type="range" min="2" max="12" step="1"></label>
+</div>
+<div class="row">
+  <button class="act" id="test">Try it now</button>
+  <button class="act alt" id="folder">Open my characters folder</button>
+</div>
+
+<script src="../node_modules/lottie-web/build/player/lottie.min.js"></script>
+<script src="characters.js"></script>
+<script>
+(async () => {
+  const settings = await api.getSettings();
+  const custom = await api.listCustom();
+  const all = [...Characters.builtin, ...custom];
+  const groups = {};
+  all.forEach((c) => (groups[c.group] ||= []).push(c));
+  groups['Surprise me'] = [{ id: 'random', name: 'Random', type: 'dice' }];
+  const root = document.getElementById('groups');
+  let selected = settings.characterId;
+
+  function mark() {
+    document.querySelectorAll('.card').forEach((el) => el.classList.toggle('sel', el.dataset.id === selected));
+  }
+
+  const order = ['Cats', 'Lizards', 'More characters', 'My characters', 'Surprise me'];
+  for (const g of order) {
+    const h = document.createElement('h2');
+    h.textContent = g;
+    root.appendChild(h);
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    root.appendChild(grid);
+    const list = groups[g] || [];
+    if (!list.length) {
+      if (g === 'More characters') { root.removeChild(h); root.removeChild(grid); continue; }
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'Nothing here yet. Add .gif, .png or Lottie .json files to your characters folder, then reopen this window.';
+      root.replaceChild(e, grid);
+      continue;
+    }
+    for (const c of list) {
+      const card = document.createElement('button');
+      card.className = 'card';
+      card.dataset.id = c.id;
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      if (c.type === 'dice') { thumb.classList.add('dice'); thumb.textContent = '🎲'; }
+      else Characters.render(thumb, c);
+      const name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = c.name;
+      card.append(thumb, name);
+      card.onclick = () => { selected = c.id; mark(); api.setSettings({ characterId: c.id }); };
+      grid.appendChild(card);
+    }
+  }
+  mark();
+
+  const dur = document.getElementById('dur'), lab = document.getElementById('durLabel');
+  dur.value = settings.duration; lab.textContent = settings.duration;
+  dur.oninput = () => { lab.textContent = dur.value; };
+  dur.onchange = () => api.setSettings({ duration: Number(dur.value) });
+
+  document.getElementById('test').onclick = () => api.summon(selected);
+  document.getElementById('folder').onclick = () => api.openCharactersFolder();
+})();
+</script>
+</body>
+</html>
