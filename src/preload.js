@@ -10,5 +10,7 @@ contextBridge.exposeInMainWorld('api', {
   listCustom: () => ipcRenderer.invoke('list-custom'),
   openCharactersFolder: () => ipcRenderer.send('open-characters-folder'),
   overlayDone: () => ipcRenderer.send('overlay-done'),
+  searchSubmit: (q) => ipcRenderer.send('search-submit', q),
+  onFocusInput: (cb) => ipcRenderer.on('focus-input', () => cb()),
   onPlay: (cb) => ipcRenderer.on('play', (_e, data) => cb(data)),
 });

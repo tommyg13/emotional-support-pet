@@ -3,12 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
 
-let btnWin, overlayWin, settingsWin;
+let btnWin, overlayWin, settingsWin, dockWin;
 let playing = false;
 let safetyTimer = null;
 let dragStart = null;
 
-const DEFAULTS = { characterId: 'cat-orange', duration: 4 };
+const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
@@ -134,6 +134,76 @@ function openSettings() {
   settingsWin.loadFile(path.join(__dirname, 'settings.html'));
 }
 
+// ---------- search dock (cat + search bar) ----------
+const DOCK_W = 560, DOCK_H = 270;
+const SEARCH_URL = 'https://www.google.com/search?q=';
+
+function createDock() {
+  const s = loadSettings();
+  const wa = screen.getPrimaryDisplay().workArea;
+  let pos = { x: Math.round(wa.x + (wa.width - DOCK_W) / 2), y: wa.y + wa.height - DOCK_H - 10 };
+  if (s.dockPos && screen.getAllDisplays().some((d) => {
+    const b = d.bounds;
+    return s.dockPos.x >= b.x && s.dockPos.x < b.x + b.width - 100 && s.dockPos.y >= b.y && s.dockPos.y < b.y + b.height - 100;
+  })) pos = s.dockPos;
+
+  dockWin = new BrowserWindow({
+    width: DOCK_W,
+    height: DOCK_H,
+    x: pos.x,
+    y: pos.y,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    skipTaskbar: true,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    backgroundColor: '#00000000',
+    webPreferences: { preload: path.join(__dirname, 'preload.js') },
+  });
+  dockWin.setAlwaysOnTop(true, 'floating');
+  if (process.platform === 'darwin') {
+    dockWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  }
+  dockWin.loadFile(path.join(__dirname, 'dock.html'));
+  dockWin.on('moved', () => {
+    if (dockWin && !dockWin.isDestroyed()) {
+      const [x, y] = dockWin.getPosition();
+      saveSettings({ ...loadSettings(), dockPos: { x, y } });
+    }
+  });
+  dockWin.on('closed', () => { dockWin = null; });
+}
+
+function applySearchDock() {
+  const on = loadSettings().searchDock;
+  if (on) {
+    if (!dockWin || dockWin.isDestroyed()) createDock();
+    else dockWin.show();
+  } else if (dockWin && !dockWin.isDestroyed()) {
+    dockWin.close();
+  }
+}
+
+function toggleSearchDock() {
+  saveSettings({ ...loadSettings(), searchDock: !loadSettings().searchDock });
+  applySearchDock();
+}
+
+function focusSearchDock() {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  if (process.platform === 'darwin') app.focus({ steal: true });
+  dockWin.show();
+  dockWin.focus();
+  dockWin.webContents.send('focus-input');
+}
+
+ipcMain.on('search-submit', (_e, q) => {
+  const query = String(q || '').trim().slice(0, 500);
+  if (query) shell.openExternal(SEARCH_URL + encodeURIComponent(query));
+});
+
 // ---------- summon ----------
 function finishPlayback() {
   clearTimeout(safetyTimer);
@@ -162,6 +232,7 @@ ipcMain.handle('get-settings', () => loadSettings());
 ipcMain.handle('set-settings', (_e, patch) => {
   const next = { ...loadSettings(), ...patch };
   saveSettings(next);
+  if ('searchDock' in patch) applySearchDock();
   return next;
 });
 ipcMain.handle('list-custom', () => listCustom());
@@ -182,6 +253,7 @@ ipcMain.on('button-menu', () => {
   Menu.buildFromTemplate([
     { label: 'Summon now', click: () => summon() },
     { label: 'Choose character…', click: openSettings },
+    { label: 'Search dock', type: 'checkbox', checked: loadSettings().searchDock, click: toggleSearchDock },
     { type: 'separator' },
     { label: `Check for updates… (v${app.getVersion()})`, click: () => checkForUpdates(true) },
     { label: 'Quit', click: () => app.quit() },
@@ -269,6 +341,8 @@ app.whenReady().then(() => {
   createOverlay();
   createButton();
   globalShortcut.register('CommandOrControl+Shift+H', () => summon());
+  globalShortcut.register('CommandOrControl+Shift+S', focusSearchDock);
+  applySearchDock();
   setTimeout(() => checkForUpdates(false), 5000);
 });
 app.on('activate', openSettings);

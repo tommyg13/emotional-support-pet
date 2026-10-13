@@ -42,3 +42,7 @@ Release a new version:
 - Windows: the app checks on start, downloads in the background, asks to restart.
 - macOS (unsigned): the app tells the user a new version exists and opens the download page; they replace the app with the new .dmg.
 - Right-click the heart -> "Check for updates…" to check manually.
+
+## Search dock (cat + search bar)
+Toggle it in "Choose character…" -> Extras, or right-click the heart -> "Search dock". Enter opens a Google search in the browser.
+To use your own cat image, save it as `src/assets/search-cat.webp` (otherwise a built-in drawn cat is shown).

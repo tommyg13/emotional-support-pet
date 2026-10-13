@@ -24,6 +24,9 @@
   input[type=range] { accent-color: var(--pink); width: 180px; }
   button.act { border:0; border-radius:999px; padding:10px 18px; font: inherit; font-weight:600; cursor:pointer; background:var(--pink); color:#fff; }
   button.act.alt { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+  .toggle { display:flex; gap:10px; align-items:center; cursor:pointer; }
+  .toggle input { accent-color: var(--pink); width:18px; height:18px; }
+  .hint { margin: 6px 0 0 28px; color: var(--muted); font-size: 13px; }
   .empty { color: var(--muted); font-size: 14px; }
   @media (prefers-reduced-motion: reduce) { .thumb svg * { animation: none !important; } }
 </style>
@@ -32,6 +35,10 @@
 <h1>Choose your support buddy</h1>
 <p class="sub">Click one to pick it. The next press of the heart button brings it up.</p>
 <div id="groups"></div>
+
+<h2>Extras</h2>
+<label class="toggle"><input type="checkbox" id="dockToggle"> Show the search dock (cat with a search bar)</label>
+<p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the cat to move it.</p>
 
 <div class="row">
   <label>Stays on screen for <b id="durLabel"></b> s <br><input id="dur" type="range" min="2" max="12" step="1"></label>
@@ -97,6 +104,10 @@
   dur.value = settings.duration; lab.textContent = settings.duration;
   dur.oninput = () => { lab.textContent = dur.value; };
   dur.onchange = () => api.setSettings({ duration: Number(dur.value) });
+
+  const dockToggle = document.getElementById('dockToggle');
+  dockToggle.checked = !!settings.searchDock;
+  dockToggle.onchange = () => api.setSettings({ searchDock: dockToggle.checked });
 
   document.getElementById('test').onclick = () => api.summon(selected);
   document.getElementById('folder').onclick = () => api.openCharactersFolder();
