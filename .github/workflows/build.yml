@@ -14,9 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm install
-      - run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx electron-builder --config electron-builder.config.js --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
@@ -26,3 +26,5 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.exe
+            dist/*.yml
+            dist/*.blockmap
