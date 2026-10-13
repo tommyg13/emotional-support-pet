@@ -5,8 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dist:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --config electron-builder.config.js",
+    "dist:win": "electron-builder --win --config electron-builder.config.js"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -17,52 +17,5 @@
     "electron-builder": "^26.0.0"
   },
   "productName": "Emotional Support Pet",
-  "author": "You",
-  "build": {
-    "appId": "com.example.emotionalsupportpet",
-    "productName": "Emotional Support Pet",
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "files": [
-      "src/**/*",
-      "package.json"
-    ],
-    "mac": {
-      "category": "public.app-category.lifestyle",
-      "icon": "build/icon.png",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ]
-    },
-    "win": {
-      "icon": "build/icon.png",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "tommyg13",
-      "repo": "emotional-support-pet",
-      "releaseType": "release"
-    }
-  }
+  "author": "You"
 }

@@ -191,7 +191,7 @@ ipcMain.on('button-menu', () => {
 // ---------- updates ----------
 // Windows: electron-updater (auto download + install on restart).
 // macOS (unsigned app): can't self-install, so we check GitHub and point to the download page.
-const publishCfg = require('../package.json').build.publish;
+const publishCfg = require('./update-config.json');
 let winUpdaterReady = false;
 let manualCheck = false;
 

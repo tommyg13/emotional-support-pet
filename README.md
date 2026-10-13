@@ -32,7 +32,7 @@ Drop files into `src/characters/` (gif/png/webp/svg/Lottie json) and rebuild the
 
 ## Updates (GitHub Releases, public repo)
 One-time setup:
-1. Create a PUBLIC GitHub repo and put its owner name in package.json -> build.publish.owner (and repo name if different).
+1. Create a PUBLIC GitHub repo and put its owner name in src/update-config.json (owner, and repo name if different).
 2. Push the project.
 
 Release a new version:
