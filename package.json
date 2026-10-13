@@ -60,7 +60,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "YOUR_GITHUB_USER",
+      "owner": "tommyg13",
       "repo": "emotional-support-pet",
       "releaseType": "release"
     }
