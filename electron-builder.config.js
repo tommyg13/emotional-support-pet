@@ -12,6 +12,10 @@ module.exports = {
     "package.json"
   ],
   "mac": {
+    "identity": "-",
+    "hardenedRuntime": true,
+    "entitlements": "build/entitlements.mac.plist",
+    "entitlementsInherit": "build/entitlements.mac.plist",
     "category": "public.app-category.lifestyle",
     "icon": "build/icon.png",
     "target": [

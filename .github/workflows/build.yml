@@ -20,6 +20,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Verify macOS signatures
+        if: runner.os == 'macOS'
+        run: |
+          find dist -maxdepth 2 -name '*.app' -print -exec codesign --verify --deep --strict --verbose=2 {} \;
+          for app in dist/mac*/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$app" || exit 1
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: installer-${{ matrix.os }}
