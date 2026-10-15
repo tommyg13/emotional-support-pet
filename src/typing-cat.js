@@ -227,25 +227,41 @@ const TypingCat = (() => {
     function queryReset() { previousQuery = input.value || ''; }
     function searchCompleted() { queryReset(); startSearchReaction('celebrate'); }
     input.addEventListener('input', queryChanged);
-    let yarnStart = -1e9, yarnRunning = false;
+    let yarnStart = -1e9, yarnRunning = false, yarnWakeMs = 0, yarnStruck = false, yarnPersonality = 'calm';
     const yarnProfiles = {
       calm: { duration: 3000, delay: 0, interest: 0.85 },
       playful: { duration: 2400, delay: 0, interest: 1 },
       sleepy: { duration: 3600, delay: 500, interest: 0.65 },
     };
+    const yarnQuotes = {
+      calm: ['A little play, then back to your day.', 'That was lovely. One small task next?', 'I’ll keep you company while you work.'],
+      playful: ['Your turn—go catch that deadline!', 'Enough yarn. Go do your thing!', 'I caught the ball. You’ve got this!'],
+      sleepy: ['You work. I’ll handle the naps.', 'Back to work… quietly, please.', 'One little task, then we rest.'],
+    };
+    const lastYarnQuote = {};
+    let yarnQuoteUntil = -1e9;
+    function clearYarnQuote() {
+      if (yarnQuoteUntil > 0) container.dispatchEvent(new CustomEvent('cat-yarn-quote-clear'));
+      yarnQuoteUntil = -1e9;
+    }
     let yarnProfile = yarnProfiles.calm;
     function stopYarn() {
-      yarnRunning = false;
+      clearYarnQuote();
+      yarnRunning = false; yarnStruck = false;
       el.yarn.setAttribute('opacity', '0');
     }
     function playYarn() {
       const now = performance.now();
       if (!alive || dragging || yarnRunning || now < focusUntil || now - lastKey < 450 || now < happyUntil) return false;
       stopYarn();
-      attention(); welcomeStart = -1e9; wakeStart = -1e9; yawnStart = -1e9;
+      const wasSleeping = mood === 'sleepy' || Date.now() - lastAttention >= profile().sleepMs;
+      attention(); welcomeStart = -1e9; wakeStart = wasSleeping ? now : -1e9; yawnStart = -1e9;
+      yarnWakeMs = wasSleeping ? 700 : 0;
+      yarnPersonality = personality;
+      reaction = 'idle'; reactionUntil = now;
       searchReaction = null; idleGestureStart = -1e9;
       yarnProfile = yarnProfiles[personality]; yarnStart = now; yarnRunning = true;
-      nextIdleAt = Math.max(nextIdleAt, now + yarnProfile.duration + 2000);
+      nextIdleAt = Math.max(nextIdleAt, now + yarnWakeMs + yarnProfile.duration + 2000);
       return true;
     }
     let careKind = null, careStart = -1e9, happyUntil = -1e9, fullUntil = -1e9;
@@ -443,20 +459,36 @@ const TypingCat = (() => {
           if (Math.random() < cfg.waveChance) wave();
         }
       }
-      const yarnAge = now - yarnStart;
+      if (now >= yarnQuoteUntil) clearYarnQuote();
+      const yarnAge = now - yarnStart - yarnWakeMs;
       if (yarnRunning && yarnAge >= yarnProfile.duration) {
-        yarnRunning = false;
+        const completed = yarnStruck && yarnAge < yarnProfile.duration + 500;
+        yarnRunning = false; yarnStruck = false;
+        if (completed) {
+          const choices = yarnQuotes[yarnPersonality].filter((_, i) => i !== lastYarnQuote[yarnPersonality]);
+          const message = choices[Math.floor(Math.random() * choices.length)];
+          lastYarnQuote[yarnPersonality] = yarnQuotes[yarnPersonality].indexOf(message);
+          yarnQuoteUntil = now + 4500;
+          container.dispatchEvent(new CustomEvent('cat-yarn-complete', { detail: { personality: yarnPersonality, message } }));
+        }
       }
       const yarnProgress = clamp(yarnAge / yarnProfile.duration, 0, 1);
-      const yarnX = -120 + 320 * Math.sin(Math.PI * yarnProgress);
+      // Roll to the inner edge of the right paw, then reverse only after its contact.
+      const contact = 0.52;
+      if (yarnRunning && yarnProgress >= contact) yarnStruck = true;
+      const approach = clamp(yarnProgress / 0.45, 0, 1);
+      const returnProgress = clamp((yarnProgress - contact) / (1 - contact), 0, 1);
+      const yarnX = yarnProgress <= contact ? -120 + 297 * ease(approach) : 177 - 297 * ease(returnProgress);
       const yarnY = 300;
-      el.yarn.setAttribute('opacity', yarnRunning && !dragging ? '1' : '0');
+      const yarnBat = yarnRunning && !reduce && !dragging && yarnProgress >= 0.36 && yarnProgress < 0.68
+        ? Math.sin(Math.PI * (yarnProgress - 0.36) / 0.32) : 0;
+      el.yarn.setAttribute('opacity', yarnRunning && !dragging && yarnAge >= 0 ? '1' : '0');
       el.yarn.setAttribute('transform', `translate(${reduce ? -80 : yarnX} ${yarnY}) rotate(${reduce ? 0 : (yarnX + 120) * 2.7}) scale(0.65) translate(-32 -32)`);
       const yarnWatch = yarnRunning && !reduce && yarnAge >= yarnProfile.delay
         ? Math.min(1, (yarnAge - yarnProfile.delay) / 250, (yarnProfile.duration - yarnAge) / 350) * yarnProfile.interest : 0;
       // Smile on approach, while the ball is close, rather than after it rolls away.
       const yarnHappy = yarnRunning && !dragging && yarnProgress >= 0.32 && yarnProgress <= 0.62;
-      const yarnAimX = clamp((yarnX - 150) / 130, -1, 1);
+      const yarnAimX = clamp((yarnX - 150) / 90, -1, 1);
       const yarnTilt = yarnAimX * yarnWatch * 20;
       const idleAge = now - idleGestureStart;
       const idleAmount = !yarnRunning && !focused && !reduce && !pointer && mood === 'normal' && activeReaction(now) === 'idle' && idleAge >= 0 && idleAge < 1200
@@ -579,7 +611,7 @@ const TypingCat = (() => {
       }
       if (careHappy) el.mouth.setAttribute('d', 'M133 163 Q150 186 167 163');
       if (caring) el.tongue.setAttribute('opacity', '0');
-      const hunting = !petting && !sleepy && !bored && !dragging && near && now - lastKey > 700 && !reduce && reactionPriority[activeReaction(now)] <= 1;
+      const hunting = !yarnRunning && !petting && !sleepy && !bored && !dragging && near && now - lastKey > 700 && !reduce && reactionPriority[activeReaction(now)] <= 1;
       reach += ((hunting ? 1 : 0) - reach) * follow;
       if (dragging) reach = 0;
       const inputBounds = peek ? input.getBoundingClientRect() : null;
@@ -614,11 +646,11 @@ const TypingCat = (() => {
           hoverReachAge >= 0 && hoverReachAge < 1300 && activeReaction(now) === "reach" && !reduce
           ? Math.sin(Math.PI * hoverReachAge / 1300) : 0;
         const dy = dragging ? 0 : pawOffset(p, now) * k +
-          clamp(py - 310, -55, 0) * catchAmount + waveLift - 30 * hoverReachStrength;
+          clamp(py - 310, -55, 0) * catchAmount + waveLift - 30 * hoverReachStrength - (i === 1 ? yarnBat * 8 : 0);
         const x = i ? 200 : 100;
         const tapLift = pawOffset(p, now) * k;
         const wristRoll = !reduce && !dragging && p.lift ? (i ? -1 : 1) * clamp(-tapLift / p.lift, 0, 1) * 6 : 0;
-        const rot = clamp(dx * 0.18 + wristRoll, -12, 12);
+        const rot = clamp(dx * 0.18 + wristRoll, -12, 12) - (i === 1 ? yarnBat * 18 : 0);
         const endX = x + dx, endY = 300 + dy;
         const arm = i ? el.armR : el.armL;
         // Tapered forearm stays attached to the shoulder and wrist at every reach.

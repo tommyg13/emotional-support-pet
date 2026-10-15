@@ -370,3 +370,35 @@ test('face parallax follows gaze and stays still with reduced motion',()=>{
  if(reduced)assert.match(f.elements['#tc-features'].attrs.transform,/^translate\(0 0\)/);
  else assert.ok(Number(f.elements['#tc-features'].attrs.transform.match(/translate\(([^ ]+)/)[1])>0);}
 });
+
+test('yarn wakes sleeping cat before rolling, contacts right paw, and completes once',()=>{
+ const f=fixture();settleNap(f);const events=[];f.container.addEventListener('cat-yarn-complete',e=>events.push(e.detail.personality));
+ assert.equal(f.controller.playYarn(),true);f.step(302700);assert.equal(f.container.dataset.mood,'normal');
+ assert.equal(f.elements['#tc-yarn'].attrs.opacity,'0');
+ f.step(303200);assert.equal(f.elements['#tc-yarn'].attrs.opacity,'1');
+ f.step(304760);const contact=f.elements['#tc-yarn'].attrs.transform;assert.match(contact,/translate\(177 300\)/);
+ assert.match(f.elements['#tc-pawR'].attrs.transform,/rotate\(-18.00/);
+ f.step(305000);assert.notEqual(f.elements['#tc-yarn'].attrs.transform,contact);
+ f.step(306200);assert.deepEqual(events,['calm']);f.step(306250);assert.equal(events.length,1);
+});
+test('interrupted yarn never emits a completion bubble event',()=>{
+ for(const interrupt of ['before','after']) {
+  const f=fixture();let completed=0;f.container.addEventListener('cat-yarn-complete',()=>completed++);f.controller.playYarn();
+  f.step(interrupt==='before'?500:1700);f.key('a');f.step(4000);assert.equal(completed,0);
+ }
+});
+
+test('completed yarn selects personality quotes without repeating and clears after display',()=>{
+ for(const [personality,duration,first] of [['calm',3000,'A little play'],['playful',2400,'Your turn'],['sleepy',3600,'You work']]) {
+  const f=fixture();f.controller.setPersonality(personality);const quotes=[];let cleared=0;
+  f.container.addEventListener('cat-yarn-complete',e=>quotes.push(e.detail.message));f.container.addEventListener('cat-yarn-quote-clear',()=>cleared++);
+  f.controller.playYarn();f.step(duration*.52);f.step(duration);assert.ok(quotes[0].startsWith(first));
+  f.step(duration+4600);assert.equal(cleared,1);
+  f.controller.playYarn();f.step(duration+4600+duration*.52);f.step(duration+4600+duration);assert.equal(quotes.length,2);assert.notEqual(quotes[0],quotes[1]);
+ }
+});
+test('dock displays a completion quote safely and hides it on clear',async()=>{
+ const f=await dockFixture();f.get('cat').listeners['cat-yarn-complete']({detail:{message:'You work. I’ll handle the naps.'}});
+ assert.equal(f.get('yarnBubble').hidden,false);assert.match(f.get('yarnBubble').textContent,/handle the naps/);
+ f.get('cat').listeners['cat-yarn-quote-clear']();assert.equal(f.get('yarnBubble').hidden,true);
+});

@@ -46,9 +46,9 @@
     .care-button:hover { background:#fff5e9; }
     .care-button:active { background:#ecd5c7; }
     .care-button:focus-visible { outline:3px solid #ff5c8acc; outline-offset:3px; }
-    #careBubble { position:absolute; left:32px; top:20px; width:236px; box-sizing:border-box; padding:12px 16px; border-radius:20px; background:#fff5e9; color:#705145; border:1px solid #eacbc0; box-shadow:0 4px 14px #583b3220; z-index:4; font-size:13px; line-height:1.4; overflow-wrap:anywhere; pointer-events:none; }
-    #careBubble::after { content:""; position:absolute; right:-9px; bottom:14px; width:14px; height:14px; background:#fff5e9; border-right:1px solid #eacbc0; border-top:1px solid #eacbc0; transform:rotate(45deg); }
-    #careBubble[hidden] { display:none; }
+    :is(#careBubble,#yarnBubble) { position:absolute; left:32px; top:20px; width:236px; box-sizing:border-box; padding:12px 16px; border-radius:20px; background:#fff5e9; color:#705145; border:1px solid #eacbc0; box-shadow:0 4px 14px #583b3220; z-index:4; font-size:13px; line-height:1.4; overflow-wrap:anywhere; pointer-events:none; }
+    :is(#careBubble,#yarnBubble)::after { content:""; position:absolute; right:-9px; bottom:14px; width:14px; height:14px; background:#fff5e9; border-right:1px solid #eacbc0; border-top:1px solid #eacbc0; transform:rotate(45deg); }
+    :is(#careBubble,#yarnBubble)[hidden] { display:none; }
 
     #bar {
       position: absolute;
@@ -135,6 +135,7 @@
     </div>
     <div id="careBubble" role="status" aria-live="polite" hidden>So happy… but I’m full! Let’s paws for a moment. ♡</div>
     <button id="resizeDock" type="button" aria-label="Resize search dock" title="Drag to resize · arrow keys adjust · double-click to reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m7 17 10-10m-5 0h5v5M7 12v5h5"/></svg></button>
+    <div id="yarnBubble" role="status" aria-live="polite" hidden></div>
     <div id="bar">
       <input id="q" type="text" placeholder="Ask Something" autocomplete="off" spellcheck="false">
       <button id="go" title="Search (Enter)" aria-label="Search">
@@ -202,6 +203,14 @@
       document.getElementById('careBubble').textContent = `${label} is happy—and full! Let’s paws for a moment. ♡`;
     }
     const stopCatName = api.onCatName?.(updateCatName);
+    document.getElementById('cat').addEventListener('cat-yarn-complete', e => {
+      const bubble = document.getElementById('yarnBubble');
+      bubble.textContent = e.detail.message;
+      bubble.hidden = false;
+    });
+    document.getElementById('cat').addEventListener('cat-yarn-quote-clear', () => {
+      document.getElementById('yarnBubble').hidden = true;
+    });
     document.getElementById('cat').addEventListener('cat-care-full', e => {
       document.getElementById('careBubble').hidden = !e.detail.full;
     });
