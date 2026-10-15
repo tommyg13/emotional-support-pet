@@ -402,3 +402,31 @@ test('dock displays a completion quote safely and hides it on clear',async()=>{
  assert.equal(f.get('yarnBubble').hidden,false);assert.match(f.get('yarnBubble').textContent,/handle the naps/);
  f.get('cat').listeners['cat-yarn-quote-clear']();assert.equal(f.get('yarnBubble').hidden,true);
 });
+
+test('manual delivery raises paws and opens mouth; eating emits a bubble only after finishing',()=>{
+ for(const kind of ['water','snack']) {
+  const f=fixture();let delivered=0;const messages=[];
+  f.container.addEventListener('cat-manual-care-delivered',()=>delivered++);f.container.addEventListener('cat-manual-care-complete',e=>messages.push(e.detail));
+  assert.equal(f.controller.beginManualCare(kind),true);
+  f.controller.updateManualCare(100,220);f.step(100);
+  assert.match(f.elements['#tc-mouth'].attrs.d,/Q150 188/);
+  assert.match(f.elements['#tc-pawL'].attrs.transform,/translate\(0.00 -/);
+  f.controller.updateManualCare(150,200);assert.equal(delivered,1);f.step(300);
+  assert.equal(f.elements['#tc-'+kind].attrs.opacity,'1.000');assert.equal(messages.length,0);
+  f.step(1500);assert.equal(messages.length,1);assert.equal(messages[0].kind,kind);assert.ok(messages[0].message);
+  f.step(1600);assert.equal(messages.length,1);
+ }
+});
+test('sleeping manual delivery waits for visible wake-up even with pointer tracking',()=>{
+ const f=fixture();settleNap(f);f.controller.beginManualCare('water');
+ f.window.dispatchEvent({type:'pointermove',clientX:150,clientY:200});
+ assert.equal(f.controller.updateManualCare(150,200),false);f.step(302700);
+ assert.equal(f.container.dataset.mood,'normal');assert.equal(Number(f.elements['#tc-water'].attrs.opacity),0);
+ f.step(303500);f.step(303700);assert.ok(Number(f.elements['#tc-water'].attrs.opacity)>0);
+});
+test('ordinary clicks and cancelled carries never emit manual-feeding bubbles',()=>{
+ const f=fixture();let count=0;f.container.addEventListener('cat-manual-care-complete',()=>count++);
+ f.controller.giveCare('snack');f.step(1600);assert.equal(count,0);
+ f.controller.beginManualCare('water');f.controller.updateManualCare(20,100);f.controller.cancelManualCare();f.step(4000);assert.equal(count,0);
+ assert.equal(f.controller.updateManualCare(150,200),false);
+});

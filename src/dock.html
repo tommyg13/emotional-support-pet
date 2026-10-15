@@ -40,6 +40,9 @@
       overflow: visible;
     }
 
+    #carriedCare {position:fixed;left:0;top:0;z-index:20;pointer-events:none;filter:drop-shadow(0 3px 5px #513b4440);}
+    #carriedCare svg {width:100%;height:100%;display:block;}
+    #carriedCare[hidden] {display:none;}
     #care { position:absolute; left:36px; bottom:100px; display:flex; gap:16px; z-index:3; }
     .care-button { width:74px; height:82px; border:1px solid #fff8; border-radius:22px; background:linear-gradient(155deg,#fff8ee,#efdfd6); color:#6b5147; box-shadow:0 5px 12px #583b3226; cursor:pointer; font-family:inherit; font-size:11px; font-weight:600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; -webkit-app-region:no-drag; }
     .care-button svg { width:50px; height:50px; pointer-events:none; }
@@ -148,6 +151,7 @@
       <button id="aiToggle" aria-pressed="false" title="Turn AI chat on or off">AI OFF</button>
     </div>
   </div>
+  <div id="carriedCare" hidden aria-hidden="true"></div>
   <section id="chat" hidden aria-label="AI conversation">
     <header><strong id="chatTitle">AI chat</strong><button id="aiSettings">Settings</button><button id="newChat">New chat</button><button id="closeChat" aria-label="Close conversation">×</button></header>
     <div id="messages" role="log" aria-live="polite"></div>
@@ -191,10 +195,57 @@
       e.preventDefault(); api.dockResize(Math.max(400, Math.min(560, widths[e.key]))); api.dockResizeEnd();
     });
     const catController = TypingCat.mount(document.getElementById('cat'), input);
+    const carried = document.getElementById('carriedCare');
+    let carry = null, holdTimer = null;
+    function endCarry() {
+      if (holdTimer !== null) clearTimeout(holdTimer); holdTimer = null;
+      if (carry) {
+        const {button,id} = carry; carry = null;
+        catController.cancelManualCare();
+        if (button.hasPointerCapture(id)) button.releasePointerCapture(id);
+      }
+      carried.hidden = true;
+    }
+    function moveCare(e) {
+      if (!carry || !carry.active) return;
+      const area = document.getElementById('wrap').getBoundingClientRect();
+      if (e.clientX < area.left || e.clientX > area.right || e.clientY < area.top || e.clientY > area.bottom) { endCarry(); return; }
+      carry.x = e.clientX; carry.y = e.clientY;
+      const size = 48 * (window.innerWidth || 560) / 560;
+      carried.setAttribute('style', `width:${size}px;height:${size}px;transform:translate(${e.clientX-size/2}px,${e.clientY-size/2}px)`);
+      catController.updateManualCare(e.clientX,e.clientY);
+    }
+    document.getElementById('cat').addEventListener('cat-manual-care-delivered', endCarry);
+    window.addEventListener('pointermove', e => {
+      if (!carry || carry.id !== e.pointerId) return;
+      carry.x=e.clientX;carry.y=e.clientY;moveCare(e);
+    });
+    window.addEventListener('pointerup', endCarry);
+    window.addEventListener('pointercancel', endCarry);
+    window.addEventListener('blur', endCarry);
+    window.addEventListener('beforeunload', endCarry);
     for (const [id, kind] of [['giveWater', 'water'], ['giveSnack', 'snack']]) {
       const button = document.getElementById(id);
       button.insertAdjacentHTML('afterbegin', TypingCat.careIcons[kind]);
-      button.addEventListener('click', () => catController.giveCare(kind));
+      let suppressClick = false;
+      button.title = 'Click to give, or hold and bring it to the cat';
+      button.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        endCarry(); suppressClick = false;
+        carry = {button,id:e.pointerId,kind,x:e.clientX,y:e.clientY,active:false};
+        button.setPointerCapture(e.pointerId);
+        holdTimer = setTimeout(() => {
+          holdTimer = null;
+          if (!carry || carry.button !== button) return;
+          suppressClick = true;
+          if (!catController.beginManualCare(kind)) {endCarry(); return;}
+          carry.active = true; carried.innerHTML = TypingCat.careIcons[kind]; carried.hidden = false;
+          moveCare({clientX:carry.x,clientY:carry.y});
+        },450);
+      });
+
+      for (const event of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(event,endCarry);
+      button.addEventListener('click', () => {if (suppressClick) {suppressClick=false;return;} catController.giveCare(kind);});
     }
     document.getElementById('playYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
     document.getElementById('playYarn').addEventListener('click', () => catController.playYarn());
@@ -207,6 +258,11 @@
       const bubble = document.getElementById('yarnBubble');
       bubble.textContent = e.detail.message;
       bubble.hidden = false;
+    });
+    document.getElementById('cat').addEventListener('cat-manual-care-complete', e => {
+      const bubble = document.getElementById('yarnBubble');
+      bubble.textContent = e.detail.message; bubble.hidden = false;
+      document.getElementById('careBubble').hidden = true;
     });
     document.getElementById('cat').addEventListener('cat-yarn-quote-clear', () => {
       document.getElementById('yarnBubble').hidden = true;

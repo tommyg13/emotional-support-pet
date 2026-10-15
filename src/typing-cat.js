@@ -266,11 +266,42 @@ const TypingCat = (() => {
     }
     let careKind = null, careStart = -1e9, happyUntil = -1e9, fullUntil = -1e9;
     let careClicks = [], belly = 0, wasFull = false;
-    function giveCare(kind) {
+    let manualCare = null, manualNear = false, manualLift = 0, pendingManualCare = null;
+    function cancelManualCare() { manualCare = null; manualNear = false; }
+    function beginManualCare(kind) {
+      if (!alive || dragging || !Object.hasOwn(careIcons, kind)) return false;
+      stopYarn(); pendingManualCare = null;
+      manualCare = { kind, point:null, woke:false, readyAt:0 }; manualNear = false;
+      return true;
+    }
+    function updateManualCare(clientX, clientY) {
+      if (!manualCare || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return false;
+      manualCare.point = {x:clientX, y:clientY};
+      const bounds = container.getBoundingClientRect();
+      const matrix = el.mouth.getScreenCTM?.();
+      const mouth = matrix ? {x:matrix.a*150+matrix.c*166+matrix.e, y:matrix.b*150+matrix.d*166+matrix.f}
+        : {x:bounds.left+bounds.width/2, y:bounds.top+(166+34)/364*bounds.height};
+      const distance = Math.hypot(clientX-mouth.x, clientY-mouth.y);
+      const scale = bounds.width / 300;
+      manualNear = distance < 155 * scale;
+      if (manualNear && !manualCare.woke) {
+        const sleeping = mood === 'sleepy' || Date.now()-lastAttention >= profile().sleepMs;
+        attention(); welcomeStart = -1e9; yawnStart = -1e9;
+        wakeStart = sleeping ? performance.now() : -1e9;
+        manualCare.woke = true; manualCare.readyAt = performance.now() + (sleeping ? 950 : 0);
+      }
+      if (distance > 32 * scale || performance.now() < manualCare.readyAt) return false;
+      const kind = manualCare.kind;
+      cancelManualCare();
+      if (!giveCare(kind, true)) return false;
+      container.dispatchEvent(new CustomEvent('cat-manual-care-delivered'));
+      return true;
+    }
+    function giveCare(kind, manual = false) {
       if (!alive || dragging || !Object.hasOwn(careIcons, kind)) return false;
       const now = performance.now();
       if (now - careStart < 350) return false; // Ignore double clicks; never queue reactions.
-      stopYarn();
+      stopYarn(); cancelManualCare(); pendingManualCare = manual ? {kind, personality} : null;
       attention(); welcomeStart = -1e9; wakeStart = -1e9; yawnStart = -1e9;
       careKind = kind; careStart = now; happyUntil = now + 2200;
       careClicks = careClicks.filter(t => now - t < 12000).slice(-4);
@@ -314,11 +345,11 @@ const TypingCat = (() => {
       const px = (pointer.x - bounds.left) / bounds.width * 300;
       const py = (pointer.y - bounds.top) / bounds.height * 364 - 34;
       const hoveringCat = px >= 28 && px <= 272 && py >= -20 && py <= 330;
-      if (hoveringCat && !wasHoveringForWake && !dragging) attention();
+      if (hoveringCat && !wasHoveringForWake && !dragging && !manualCare) attention();
       wasHoveringForWake = hoveringCat;
       // Detect deliberate back-and-forth strokes across the face, not ordinary hovering.
       const onHead = px >= 78 && px <= 222 && py >= 100 && py <= 188;
-      if (!onHead || dragging) { resetPetStroke(); }
+      if (!onHead || dragging || manualCare) { resetPetStroke(); }
       else if (lastStrokeX !== null && Math.abs(px - lastStrokeX) >= 9) {
         const direction = Math.sign(px - lastStrokeX);
         if (lastStrokeDirection && direction !== lastStrokeDirection) {
@@ -342,7 +373,7 @@ const TypingCat = (() => {
       } else if (lastStrokeX === null) lastStrokeX = px;
     }
     let wasHoveringForWake = false;
-    function onDrag(e) { if (e.detail) { stopYarn(); el.dream.setAttribute('opacity', '0'); } dragging = e.detail; if (dragging) reach = 0; }
+    function onDrag(e) { if (e.detail) { cancelManualCare(); pendingManualCare = null; stopYarn(); el.dream.setAttribute('opacity', '0'); } dragging = e.detail; if (dragging) reach = 0; }
     window.addEventListener("cat-drag", onDrag);
     function clearPointer() { stopYarn(); pointer = null; wasHoveringForWake = false; resetPetStroke(); }
     window.addEventListener("pointermove", onPointer);
@@ -397,6 +428,7 @@ const TypingCat = (() => {
         e.key.startsWith("Arrow")
       )
         return;
+      cancelManualCare(); pendingManualCare = null;
       stopYarn();
       returnToSearch();
       const now = performance.now();
@@ -494,6 +526,20 @@ const TypingCat = (() => {
       const idleAmount = !yarnRunning && !focused && !reduce && !pointer && mood === 'normal' && activeReaction(now) === 'idle' && idleAge >= 0 && idleAge < 1200
         ? Math.sin(Math.PI * idleAge / 1200) * profile().motion : 0;
       const careAge = now - careStart;
+      manualLift += ((manualNear ? 1 : 0) - manualLift) * Math.min(1, dt * 9);
+      if (pendingManualCare && careAge >= 1400) {
+        const {kind, personality:carePersonality} = pendingManualCare;
+        pendingManualCare = null;
+        if (careAge < 1900 && !dragging) {
+          const lines = kind === 'water'
+            ? { calm:['A lovely little sip. Thank you.','Refreshed and ready to keep you company.','Water delivered with love. ♡'], playful:['Hydrated! Back to mischief.','Five-star water service!','Sip, sip… you’re my favorite human.'], sleepy:['A sleepy sip… thank you.','Water, then a tiny nap.','Even dreamers need a drink.'] }
+            : { calm:['That was lovely. Thank you for the treat.','A little snack, a lot of love.','I’ll save you a cozy spot beside me.'], playful:['Fish delivery! Best day ever.','You bring the snacks. I bring the charm.','That deserves a happy little purr!'], sleepy:['A snack before my nap? Perfect.','Mmm… dreaming of the next one already.','Full tummy. Sleepy paws. Happy cat.'] };
+          const choices = lines[carePersonality];
+          const message = now < fullUntil ? 'So loved—and so full! Let’s save the next one. ♡' : choices[Math.floor(Math.random()*choices.length)];
+          yarnQuoteUntil = now + 4500;
+          container.dispatchEvent(new CustomEvent('cat-manual-care-complete', {detail:{kind, message}}));
+        }
+      }
       const caring = !dragging && careAge >= 0 && careAge < 1400;
       const full = now < fullUntil;
       const careHappy = !dragging && (now < happyUntil || full);
@@ -597,7 +643,7 @@ const TypingCat = (() => {
       smile += ((overCat ? 1 : 0) - smile) * follow;
       const mouthWidth = 15 + smile * 5;
       el.mouth.setAttribute("d", `M150 158 v5 M150 163 q${-7-smile*2} ${7+smile*5} ${-mouthWidth} ${2-smile*4} M150 163 q${7+smile*2} ${7+smile*5} ${mouthWidth} ${2-smile*4}`);
-      el.blush.setAttribute("opacity", Math.max(careHappy ? 0.6 : 0, smile * 0.28, petting ? 0.65 : delighted ? 0.55 : 0).toFixed(3));
+      el.blush.setAttribute("opacity", Math.max(careHappy || manualNear ? 0.6 : 0, smile * 0.28, petting ? 0.65 : delighted ? 0.55 : 0).toFixed(3));
       if (napping) el.mouth.setAttribute('d', 'M137 164 Q150 171 163 164');
       if (yarnHappy) el.mouth.setAttribute('d', 'M137 164 Q150 175 163 164');
       if (welcoming) el.mouth.setAttribute('d', 'M138 164 Q150 175 162 164');
@@ -610,8 +656,9 @@ const TypingCat = (() => {
         el.mouth.setAttribute('d', `M142 167 Q150 ${167 + 20 * open} 158 167 Q150 ${164 - 5 * open} 142 167Z`);
       }
       if (careHappy) el.mouth.setAttribute('d', 'M133 163 Q150 186 167 163');
-      if (caring) el.tongue.setAttribute('opacity', '0');
-      const hunting = !yarnRunning && !petting && !sleepy && !bored && !dragging && near && now - lastKey > 700 && !reduce && reactionPriority[activeReaction(now)] <= 1;
+      if (manualNear) el.mouth.setAttribute('d', 'M139 164 Q150 188 161 164 Q150 156 139 164Z');
+      if (caring || manualNear) el.tongue.setAttribute('opacity', '0');
+      const hunting = !manualCare && !yarnRunning && !petting && !sleepy && !bored && !dragging && near && now - lastKey > 700 && !reduce && reactionPriority[activeReaction(now)] <= 1;
       reach += ((hunting ? 1 : 0) - reach) * follow;
       if (dragging) reach = 0;
       const inputBounds = peek ? input.getBoundingClientRect() : null;
@@ -646,11 +693,11 @@ const TypingCat = (() => {
           hoverReachAge >= 0 && hoverReachAge < 1300 && activeReaction(now) === "reach" && !reduce
           ? Math.sin(Math.PI * hoverReachAge / 1300) : 0;
         const dy = dragging ? 0 : pawOffset(p, now) * k +
-          clamp(py - 310, -55, 0) * catchAmount + waveLift - 30 * hoverReachStrength - (i === 1 ? yarnBat * 8 : 0);
+          clamp(py - 310, -55, 0) * catchAmount + waveLift - 30 * hoverReachStrength - (i === 1 ? yarnBat * 8 : 0) - (!reduce ? manualLift * 30 : 0);
         const x = i ? 200 : 100;
         const tapLift = pawOffset(p, now) * k;
         const wristRoll = !reduce && !dragging && p.lift ? (i ? -1 : 1) * clamp(-tapLift / p.lift, 0, 1) * 6 : 0;
-        const rot = clamp(dx * 0.18 + wristRoll, -12, 12) - (i === 1 ? yarnBat * 18 : 0);
+        const rot = clamp(dx * 0.18 + wristRoll, -12, 12) - (i === 1 ? yarnBat * 18 : 0) + (!reduce ? (i ? -1 : 1) * manualLift * 8 : 0);
         const endX = x + dx, endY = 300 + dy;
         const arm = i ? el.armR : el.armL;
         // Tapered forearm stays attached to the shoulder and wrist at every reach.
@@ -666,6 +713,7 @@ const TypingCat = (() => {
         );
       }
 
+      if (manualCare?.point) updateManualCare(manualCare.point.x, manualCare.point.y);
       // blink (a bit faster while typing)
       if (now > blinkAt) {
         blinkT0 = now;
@@ -685,8 +733,9 @@ const TypingCat = (() => {
     window.addEventListener('cat-dev-mood', onDevMood);
     window.addEventListener('cat-dev-wave', onDevWave);
     return {
-      setMood: devMood, setPersonality, wave, searchCompleted, queryReset, giveCare, playYarn,
+      setMood: devMood, setPersonality, wave, searchCompleted, queryReset, giveCare, playYarn, beginManualCare, updateManualCare, cancelManualCare,
       destroy() {
+        cancelManualCare(); pendingManualCare = null;
         stopYarn();
         el.dream.setAttribute('opacity', '0');
         alive = false;
