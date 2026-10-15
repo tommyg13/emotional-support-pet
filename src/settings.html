@@ -36,6 +36,16 @@
 <p class="sub">Click one to pick it. The next press of the heart button brings it up.</p>
 <div id="groups"></div>
 
+<h2>AI chat</h2>
+<div style="display:grid;gap:10px;max-width:420px">
+<label>Provider <select id="aiProvider"><option value="openai">OpenAI</option><option value="claude">Claude (Anthropic)</option><option value="google">Google Gemini</option></select></label>
+<label>Model <select id="aiModel" style="max-width:100%"></select></label>
+<button class="act alt" id="loadModels">Load official models</button>
+<label>API key <input id="aiKey" type="password" autocomplete="off" placeholder="Paste your API key" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:10px"></label>
+<div><button class="act" id="saveAI">Save AI settings</button> <button class="act alt" id="removeAI">Remove key</button></div>
+<p id="aiStatus" role="status" class="hint" style="margin:0"></p>
+<p class="hint" style="margin:0">Turn AI ON beside Send to chat. Messages go directly to your selected provider using your API account. Keys are encrypted on this computer. Chat history stays in memory until you close the dock or start a new chat.</p>
+</div>
 <h2>Extras</h2>
 <label class="toggle"><input type="checkbox" id="dockToggle"> Show the search dock (cat with a search bar)</label>
 <p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the cat to move it.</p>
@@ -53,6 +63,42 @@
 <script>
 (async () => {
   const settings = await api.getSettings();
+  const provider = document.getElementById('aiProvider'), key = document.getElementById('aiKey'), aiStatus = document.getElementById('aiStatus'), modelSelect = document.getElementById('aiModel');
+  const selectedModels = {...(settings.aiModels || {})};
+  let loading = false;
+  provider.value = settings.aiProvider || 'openai';
+  function showSavedModel() {
+    modelSelect.replaceChildren();
+    const saved = selectedModels[provider.value];
+    const option = new Option(saved || 'Load models to choose…', saved || ''); modelSelect.add(option);
+  }
+  async function keyStatus() { const s = await api.aiStatus(provider.value); aiStatus.textContent = s.configured ? 'Key saved. Load official models, choose one, then Save.' : 'Enter a key, then Load official models.'; }
+  provider.onchange = () => { key.value = ''; showSavedModel(); keyStatus(); };
+  document.getElementById('loadModels').onclick = async () => {
+    if (loading) return;
+    loading = true; const p = provider.value; provider.disabled = true;
+    document.getElementById('saveAI').disabled = true; document.getElementById('removeAI').disabled = true;
+    aiStatus.textContent = 'Loading models from provider…';
+    try {
+      if (key.value.trim()) { await api.aiSave(p, key.value); key.value = ''; }
+      const models = await api.aiModels(p); modelSelect.replaceChildren();
+      for (const m of models) modelSelect.add(new Option(m.name === m.id ? m.id : `${m.name} (${m.id})`, m.id));
+      if (models.some(m => m.id === selectedModels[p])) modelSelect.value = selectedModels[p];
+      aiStatus.textContent = `${models.length} models loaded from provider. Choose a text chat model and Save.`;
+    } catch(e) { aiStatus.textContent = e.message; }
+    finally { loading = false; provider.disabled = false; document.getElementById('saveAI').disabled = false; document.getElementById('removeAI').disabled = false; }
+  };
+  document.getElementById('saveAI').onclick = async () => {
+    try {
+      if (key.value.trim()) { await api.aiSave(provider.value, key.value); key.value = ''; }
+      if (!modelSelect.value) throw Error('Load official models and choose one first.');
+      selectedModels[provider.value] = modelSelect.value;
+      await api.setSettings({aiProvider:provider.value, aiModels:selectedModels});
+      aiStatus.textContent = 'Saved · ' + modelSelect.value;
+    } catch(e) { aiStatus.textContent = e.message; }
+  };
+  document.getElementById('removeAI').onclick = async () => { try { await api.aiSave(provider.value, ''); key.value = ''; await keyStatus(); } catch(e) { aiStatus.textContent = e.message; } };
+  showSavedModel(); await keyStatus();
   const custom = await api.listCustom();
   const all = [...Characters.builtin, ...custom];
   const groups = {};

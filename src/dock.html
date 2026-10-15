@@ -97,6 +97,18 @@
       height: 32px;
       display: block;
     }
+    #aiToggle { border:0; border-radius:16px; padding:9px; cursor:pointer; color:#59433c; background:#ffffff70; white-space:nowrap; }
+    #aiToggle[aria-pressed=true] { background:#ff5c8a; color:white; }
+    #chat { position:absolute; top:270px; left:16px; right:16px; bottom:8px; background:#fff7f2; color:#3a2a2a; border-radius:20px; padding:14px; box-sizing:border-box; display:flex; flex-direction:column; box-shadow:0 4px 18px #5433; }
+    #chat[hidden] { display:none; }
+    #chat header { display:flex; gap:8px; align-items:center; }
+    #chat header strong { flex:1; }
+    #chat button { border:0; border-radius:10px; padding:6px 9px; cursor:pointer; background:#eeddd5; color:#3a2a2a; }
+    #messages { flex:1; overflow:auto; user-select:text; padding:8px 0; }
+    .message { white-space:pre-wrap; overflow-wrap:anywhere; margin:7px 0; padding:9px 12px; border-radius:12px; background:#f0e3dc; font-size:14px; }
+    .message.user { background:#ffe0e9; margin-left:35px; }
+    .message.error { color:#9a243f; }
+    #usage, #chatStatus { font-size:12px; color:#806b64; }
   </style>
 </head>
 
@@ -112,8 +124,14 @@
           <path d="M9 8l-4 5 4 5" />
         </svg>
       </button>
+      <button id="aiToggle" aria-pressed="false" title="Turn AI chat on or off">AI OFF</button>
     </div>
   </div>
+  <section id="chat" hidden aria-label="AI conversation">
+    <header><strong id="chatTitle">AI chat</strong><button id="aiSettings">Settings</button><button id="newChat">New chat</button><button id="closeChat" aria-label="Close conversation">×</button></header>
+    <div id="messages" role="log" aria-live="polite"></div>
+    <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
+  </section>
   <script src="typing-cat.js"></script>
   <script>
     const input = document.getElementById('q');
@@ -146,11 +164,58 @@
     wrap.addEventListener('lostpointercapture', endDrag);
     window.addEventListener('blur', endDrag);
 
-    function submit() {
-      const q = input.value.trim();
-      if (!q) return;
-      api.searchSubmit(q);
-      input.value = '';
+    let enabled = false, busy = false, provider = '', activeModel = '', history = [], totalTokens = 0;
+    const panel = document.getElementById('chat'), toggle = document.getElementById('aiToggle');
+    async function showPanel(open) { panel.hidden = !open; await api.aiPanel(open); }
+    function message(role, text) {
+      const el = document.createElement('div'); el.className = 'message ' + role; el.textContent = text;
+      document.getElementById('messages').appendChild(el); el.scrollIntoView({ block:'end' });
+    }
+    async function refresh() {
+      const s = await api.getSettings();
+      const nextModel = s.aiModels?.[s.aiProvider] || '';
+      if (provider && (provider !== s.aiProvider || activeModel !== nextModel)) reset();
+      activeModel = nextModel;
+      provider = s.aiProvider || 'openai'; enabled = !!s.aiEnabled;
+      toggle.textContent = enabled ? 'AI ON' : 'AI OFF'; toggle.setAttribute('aria-pressed', String(enabled));
+      document.getElementById('chatTitle').textContent = 'AI chat · ' + ({openai:'OpenAI',claude:'Claude',google:'Google Gemini'}[provider]);
+      input.placeholder = enabled ? 'Ask AI…' : 'What you want to ask?';
+      if (!enabled && !panel.hidden) await showPanel(false);
+    }
+    function reset() { history = []; totalTokens = 0; document.getElementById('messages').replaceChildren(); document.getElementById('usage').textContent = 'Tokens appear after a reply.'; document.getElementById('chatStatus').textContent = ''; }
+    toggle.onclick = async () => {
+      if (busy) return;
+      await api.setSettings({ aiEnabled: !enabled }); await refresh();
+      if (enabled && !(await api.aiStatus(provider)).configured) {
+        await showPanel(true); document.getElementById('chatStatus').textContent = 'Choose a provider, save your API key and select an official model in Settings.';
+      }
+    };
+    document.getElementById('aiSettings').onclick = () => api.openSettings();
+    document.getElementById('newChat').onclick = () => { if (!busy) reset(); };
+    document.getElementById('closeChat').onclick = () => showPanel(false);
+    window.addEventListener('focus', () => { if (!busy) refresh(); });
+    refresh();
+    async function submit() {
+      const q = input.value.trim(); if (!q || busy) return;
+      await refresh();
+      if (!enabled) { api.searchSubmit(q); input.value = ''; return; }
+      await showPanel(true);
+      if (!(await api.aiStatus(provider)).configured || !activeModel) {
+        document.getElementById('chatStatus').textContent = 'Choose a provider, save your API key and select an official model in Settings.'; return;
+      }
+      if (q.length > 30000 || history.length >= 98) { document.getElementById('chatStatus').textContent = 'Message or conversation too long. Start a new chat.'; return; }
+      busy = true; document.getElementById('go').disabled = true; toggle.disabled = true;
+      document.getElementById('newChat').disabled = true; input.value = ''; message('user', q);
+      document.getElementById('chatStatus').textContent = 'Thinking…';
+      const messages = [...history, {role:'user', content:q}];
+      try {
+        const reply = await api.aiChat(messages);
+        history = [...messages, {role:'assistant',content:reply.text}]; message('assistant', reply.text);
+        const u = reply.usage; if (u.total != null) totalTokens += u.total;
+        document.getElementById('usage').textContent = `${reply.model} · Input: ${u.input ?? '—'} · Output: ${u.output ?? '—'} · This reply: ${u.total ?? '—'} · Session: ${totalTokens} tokens`;
+        document.getElementById('chatStatus').textContent = '';
+      } catch(e) { message('error', e.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); input.value = q; document.getElementById('chatStatus').textContent = 'Not sent to conversation history. You can retry.'; }
+      finally { busy = false; document.getElementById('go').disabled = false; toggle.disabled = false; document.getElementById('newChat').disabled = false; input.focus(); }
     }
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submit();

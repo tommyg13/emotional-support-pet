@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, screen, Menu, shell, globalShortcut, dialog, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const ai = require('./ai');
 const { pathToFileURL } = require('url');
 
 let btnWin, overlayWin, settingsWin, dockWin;
@@ -8,7 +9,7 @@ let playing = false;
 let safetyTimer = null;
 let dragStart = null;
 
-const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null };
+const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai' };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
@@ -223,6 +224,33 @@ ipcMain.on('dock-drag-end', (event) => {
 ipcMain.on('search-submit', (_e, q) => {
   const query = String(q || '').trim().slice(0, 500);
   if (query) shell.openExternal(SEARCH_URL + encodeURIComponent(query));
+});
+
+// AI keys stay in the main process; renderer receives only configured status.
+let aiBusy = false;
+ipcMain.on('open-settings', openSettings);
+ipcMain.handle('ai-models', (event, provider) => {
+  if (!settingsWin || event.sender !== settingsWin.webContents) throw Error('Open Settings first.');
+  return ai.listModels(provider);
+});
+ipcMain.handle('ai-status', (_event, provider) => ai.status(provider));
+ipcMain.handle('ai-save', (event, provider, key) => {
+  if (!settingsWin || event.sender !== settingsWin.webContents) throw Error('Open Settings to save a key.');
+  return ai.saveKey(provider, key);
+});
+ipcMain.handle('ai-chat', async (event, messages) => {
+  if (!dockWin || event.sender !== dockWin.webContents || !loadSettings().aiEnabled) throw Error('Enable AI first.');
+  if (aiBusy) throw Error('Please wait for the current reply.');
+  aiBusy = true;
+  try { return await ai.chat(loadSettings().aiProvider, messages, loadSettings().aiModels?.[loadSettings().aiProvider]); }
+  finally { aiBusy = false; }
+});
+ipcMain.handle('ai-panel', (event, open) => {
+  if (!dockWin || event.sender !== dockWin.webContents) return;
+  const b = dockWin.getBounds();
+  const wa = screen.getDisplayMatching(b).workArea;
+  const height = open ? Math.min(DOCK_H + 330, wa.height) : DOCK_H;
+  dockWin.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - height)), width: DOCK_W, height });
 });
 
 // ---------- summon ----------
