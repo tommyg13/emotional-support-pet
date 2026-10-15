@@ -63,7 +63,8 @@
         <circle cx="${cx}" cy="118" r="34" fill="#fff" stroke="${c.dark}" stroke-width="5"/>
         <g class="liz-pupil"><circle cx="${cx}" cy="120" r="15" fill="#151515"/><circle cx="${cx + 5}" cy="114" r="5" fill="#fff"/></g>
       </g>`;
-    const mouth = 'M108 245 Q200 212 292 245 Q288 332 200 336 Q112 332 108 245 Z';
+    const mouth =
+      "M108 245 Q200 212 292 245 Q288 332 200 336 Q112 332 108 245 Z";
     return `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"><style>${LIZ_CSS}</style>
       <g class="liz-bob">
         <ellipse cx="200" cy="395" rx="135" ry="135" fill="${c.body}"/>
@@ -84,35 +85,105 @@
   }
 
   const catColors = {
-    orange: { body: '#f0a04b', belly: '#fff1dc', stripe: '#c4721f', eye: '#9be15d', pink: '#ffb3c1', nose: '#ff8fa3', whisker: '#7a4a1c' },
-    gray:   { body: '#9aa3ad', belly: '#e9edf1', stripe: '#6b7580', eye: '#ffd54a', pink: '#ffb3c1', nose: '#ff8fa3', whisker: '#4f5863' },
-    black:  { body: '#2b2b33', belly: '#46464f', stripe: '#1a1a20', eye: '#ffd54a', pink: '#d98aa0', nose: '#e58fa6', whisker: '#9aa0a6' },
-    white:  { body: '#f7f3ee', belly: '#ffffff', stripe: '#dccfc2', eye: '#6ec6ff', pink: '#ffc2cf', nose: '#ff9db0', whisker: '#a89a8c' },
+    orange: {
+      body: "#f0a04b",
+      belly: "#fff1dc",
+      stripe: "#c4721f",
+      eye: "#9be15d",
+      pink: "#ffb3c1",
+      nose: "#ff8fa3",
+      whisker: "#7a4a1c",
+    },
+    gray: {
+      body: "#9aa3ad",
+      belly: "#e9edf1",
+      stripe: "#6b7580",
+      eye: "#ffd54a",
+      pink: "#ffb3c1",
+      nose: "#ff8fa3",
+      whisker: "#4f5863",
+    },
+    black: {
+      body: "#2b2b33",
+      belly: "#46464f",
+      stripe: "#1a1a20",
+      eye: "#ffd54a",
+      pink: "#d98aa0",
+      nose: "#e58fa6",
+      whisker: "#9aa0a6",
+    },
+    white: {
+      body: "#f7f3ee",
+      belly: "#ffffff",
+      stripe: "#dccfc2",
+      eye: "#6ec6ff",
+      pink: "#ffc2cf",
+      nose: "#ff9db0",
+      whisker: "#a89a8c",
+    },
   };
   const lizColors = {
-    green:  { body: '#6fb26a', belly: '#cfe8a8', spot: '#3f7d3d', dark: '#2f6a35' },
-    blue:   { body: '#5aa9e6', belly: '#d4ecff', spot: '#2f6fb0', dark: '#245a8f' },
-    orange: { body: '#f08a4b', belly: '#ffe2c4', spot: '#b4521a', dark: '#9c4116' },
-    purple: { body: '#a98be8', belly: '#eadfff', spot: '#6c4bb8', dark: '#553a98' },
+    green: {
+      body: "#6fb26a",
+      belly: "#cfe8a8",
+      spot: "#3f7d3d",
+      dark: "#2f6a35",
+    },
+    blue: {
+      body: "#5aa9e6",
+      belly: "#d4ecff",
+      spot: "#2f6fb0",
+      dark: "#245a8f",
+    },
+    orange: {
+      body: "#f08a4b",
+      belly: "#ffe2c4",
+      spot: "#b4521a",
+      dark: "#9c4116",
+    },
+    purple: {
+      body: "#a98be8",
+      belly: "#eadfff",
+      spot: "#6c4bb8",
+      dark: "#553a98",
+    },
   };
 
   const builtin = [];
   for (const [k, c] of Object.entries(catColors))
-    builtin.push({ id: 'cat-' + k, name: k[0].toUpperCase() + k.slice(1) + ' cat', group: 'Cats', type: 'svg', svg: () => cat(c) });
+    builtin.push({
+      id: "cat-" + k,
+      name: k[0].toUpperCase() + k.slice(1) + " cat",
+      group: "Cats",
+      type: "svg",
+      svg: () => cat(c),
+    });
   for (const [k, c] of Object.entries(lizColors))
-    builtin.push({ id: 'lizard-' + k, name: k[0].toUpperCase() + k.slice(1) + ' lizard', group: 'Lizards', type: 'svg', svg: () => lizard(c) });
+    builtin.push({
+      id: "lizard-" + k,
+      name: k[0].toUpperCase() + k.slice(1) + " lizard",
+      group: "Lizards",
+      type: "svg",
+      svg: () => lizard(c),
+    });
 
   function render(el, ch) {
-    el.innerHTML = '';
-    if (ch.type === 'svg') {
+    el.innerHTML = "";
+    if (ch.type === "svg") {
       el.innerHTML = ch.svg();
-    } else if (ch.type === 'image') {
+    } else if (ch.type === "image") {
       const img = new Image();
       img.draggable = false;
       img.src = ch.url;
       el.appendChild(img);
-    } else if (ch.type === 'lottie' && window.lottie) {
-      window.lottie.loadAnimation({ container: el, renderer: 'svg', loop: true, autoplay: true, animationData: JSON.parse(JSON.stringify(ch.data)) });
+    } else if (ch.type === "lottie" && window.lottie) {
+      window.lottie.loadAnimation({
+        container: el,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        animationData: JSON.parse(JSON.stringify(ch.data)),
+      });
     }
   }
 
