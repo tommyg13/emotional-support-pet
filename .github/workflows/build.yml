@@ -30,7 +30,10 @@ jobs:
           $assets = @(Get-ChildItem dist -File | Where-Object { $_.Name -match '\.(exe|blockmap)$' -or $_.Name -eq 'latest.yml' })
           if (-not (Test-Path dist/latest.yml) -or -not ($assets | Where-Object { $_.Extension -eq '.exe' })) { throw 'Windows update assets missing' }
           foreach ($asset in $assets) {
-            gh release upload $env:GITHUB_REF_NAME $asset.FullName --repo $env:GITHUB_REPOSITORY --clobber
+            $publicName = $asset.Name.Replace(' ', '-')
+            if ($asset.Name -ne $publicName) { Rename-Item -LiteralPath $asset.FullName -NewName $publicName }
+            $uploadPath = Join-Path $asset.DirectoryName $publicName
+            gh release upload $env:GITHUB_REF_NAME $uploadPath --repo $env:GITHUB_REPOSITORY --clobber
             if ($LASTEXITCODE -ne 0) { throw "Release upload failed: $($asset.Name)" }
           }
       - name: Verify macOS signatures
