@@ -1,6 +1,6 @@
 {
   "name": "emotional-support-pet",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A floating emotional support button that summons a big cat or lizard",
   "main": "src/main.js",
   "scripts": {
