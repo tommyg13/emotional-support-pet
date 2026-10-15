@@ -12,7 +12,7 @@ let safetyTimer = null;
 let dragStart = null;
 
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
-const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '' };
+const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', dockWidth: 560 };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
@@ -193,21 +193,42 @@ function openSettings() {
 
 // ---------- search dock (cat + search bar) ----------
 let dockDrag = null;
-const DOCK_W = 560, DOCK_H = 270;
+const DOCK_W = 560, DOCK_H = 270, DOCK_MIN_W = 400;
+let dockPanelOpen = false;
+function dockWidth(value) { return Number.isFinite(value) ? Math.max(DOCK_MIN_W, Math.min(DOCK_W, Math.round(value))) : DOCK_W; }
+function dockHeight(width) { return Math.round(DOCK_H * width / DOCK_W); }
+function resizeDock(width) {
+  if (!dockWin || dockWin.isDestroyed()) return;
+  width = dockWidth(width);
+  const b = dockWin.getBounds(), wa = screen.getDisplayMatching(b).workArea;
+  const height = Math.min(dockHeight(width) + (dockPanelOpen ? 330 : 0), wa.height);
+  dockWin.setBounds({ x: Math.max(wa.x, Math.min(b.x, wa.x + wa.width - width)), y: Math.max(wa.y, Math.min(b.y + b.height - height, wa.y + wa.height - height)), width, height });
+}
+ipcMain.on('dock-resize', (event, width) => {
+  if (!dockWin || event.sender !== dockWin.webContents || !Number.isFinite(width)) return;
+  resizeDock(width);
+});
+ipcMain.on('dock-resize-end', event => {
+  if (!dockWin || dockWin.isDestroyed() || event.sender !== dockWin.webContents) return;
+  const b = dockWin.getBounds();
+  saveSettings({ ...loadSettings(), dockWidth: b.width, dockPos: { x:b.x, y:b.y } });
+});
 const SEARCH_URL = 'https://www.google.com/search?q=';
 
 function createDock() {
   const s = loadSettings();
   const wa = screen.getPrimaryDisplay().workArea;
-  let pos = { x: Math.round(wa.x + (wa.width - DOCK_W) / 2), y: wa.y + wa.height - DOCK_H - 10 };
+  const width = dockWidth(s.dockWidth), height = dockHeight(width);
+  dockPanelOpen = false;
+  let pos = { x: Math.round(wa.x + (wa.width - width) / 2), y: wa.y + wa.height - height - 10 };
   if (s.dockPos && screen.getAllDisplays().some((d) => {
     const b = d.bounds;
     return s.dockPos.x >= b.x && s.dockPos.x < b.x + b.width - 100 && s.dockPos.y >= b.y && s.dockPos.y < b.y + b.height - 100;
   })) pos = s.dockPos;
 
   dockWin = new BrowserWindow({
-    width: DOCK_W,
-    height: DOCK_H,
+    width,
+    height,
     x: pos.x,
     y: pos.y,
     frame: false,
@@ -305,8 +326,10 @@ ipcMain.handle('ai-panel', (event, open) => {
   if (!dockWin || event.sender !== dockWin.webContents) return;
   const b = dockWin.getBounds();
   const wa = screen.getDisplayMatching(b).workArea;
-  const height = open ? Math.min(DOCK_H + 330, wa.height) : DOCK_H;
-  dockWin.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - height)), width: DOCK_W, height });
+  dockPanelOpen = !!open;
+  const width = dockWidth(b.width);
+  const height = Math.min(dockHeight(width) + (dockPanelOpen ? 330 : 0), wa.height);
+  dockWin.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - height)), width, height });
 });
 
 // ---------- summon ----------

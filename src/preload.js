@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('api', {
   aiPanel: (open) => ipcRenderer.invoke('ai-panel', open),
   openSettings: () => ipcRenderer.send('open-settings'),
   searchSubmit: (q) => ipcRenderer.send('search-submit', q),
+  dockResize: width => ipcRenderer.send('dock-resize', width),
+  dockResizeEnd: () => ipcRenderer.send('dock-resize-end'),
   dockDragStart: () => ipcRenderer.send('dock-drag-start'),
   dockDragMove: (dx, dy) => ipcRenderer.send('dock-drag-move', { dx, dy }),
   dockDragEnd: () => ipcRenderer.send('dock-drag-end'),

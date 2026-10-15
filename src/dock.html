@@ -19,6 +19,7 @@
       height: 270px;
       -webkit-app-region: no-drag;
       user-select: none;
+      transform-origin:top left; transform:scale(var(--dock-scale, 1));
     }
 
     #cat {
@@ -96,11 +97,13 @@
       background: rgba(255, 255, 255, .3);
     }
 
-    #go:focus-visible,
-    input:focus-visible {
-      outline: 3px solid rgba(255, 92, 138, .8);
-      outline-offset: 2px;
-    }
+    input:focus-visible { outline:none; }
+    #bar:focus-within { box-shadow:0 8px 24px rgba(90,60,50,.22), 0 0 0 4px rgba(179,142,182,.2), 0 0 20px rgba(161,123,175,.22), inset 0 1px 2px #ffffffaa; }
+    #go:focus-visible { outline:none; box-shadow:0 0 0 3px #b38eb666; }
+    #resizeDock { position:absolute;right:3px;bottom:1px;width:27px;height:25px;z-index:6;background:transparent;border:0;border-radius:8px;color:#967b78;cursor:ew-resize;display:grid;place-items:center;padding:3px;-webkit-app-region:no-drag; }
+    #resizeDock svg {width:17px;height:17px;pointer-events:none;}
+    #resizeDock:hover,#resizeDock:focus-visible {background:#fff5;outline:none;box-shadow:0 0 0 2px #b38eb655;}
+
 
     #go svg {
       width: 32px;
@@ -109,7 +112,7 @@
     }
     #aiToggle { border:0; border-radius:16px; padding:9px; cursor:pointer; color:#59433c; background:#ffffff70; white-space:nowrap; }
     #aiToggle[aria-pressed=true] { background:#ff5c8a; color:white; }
-    #chat { position:absolute; top:270px; left:16px; right:16px; bottom:8px; background:#fff7f2; color:#3a2a2a; border-radius:20px; padding:14px; box-sizing:border-box; display:flex; flex-direction:column; box-shadow:0 4px 18px #5433; }
+    #chat { position:absolute; top:var(--dock-height,270px); left:16px; right:16px; bottom:8px; background:#fff7f2; color:#3a2a2a; border-radius:20px; padding:14px; box-sizing:border-box; display:flex; flex-direction:column; box-shadow:0 4px 18px #5433; }
     #chat[hidden] { display:none; }
     #chat header { display:flex; gap:8px; align-items:center; }
     #chat header strong { flex:1; }
@@ -131,8 +134,9 @@
       <button id="playYarn" class="care-button" type="button" aria-label="Play with a yarn ball" title="Play with yarn"><span>Yarn</span></button>
     </div>
     <div id="careBubble" role="status" aria-live="polite" hidden>So happy… but I’m full! Let’s paws for a moment. ♡</div>
+    <button id="resizeDock" type="button" aria-label="Resize search dock" title="Drag to resize · arrow keys adjust · double-click to reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m7 17 10-10m-5 0h5v5M7 12v5h5"/></svg></button>
     <div id="bar">
-      <input id="q" type="text" placeholder="What you want to ask?" autocomplete="off" spellcheck="false">
+      <input id="q" type="text" placeholder="Ask Something" autocomplete="off" spellcheck="false">
       <button id="go" title="Search (Enter)" aria-label="Search">
         <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"
           stroke-linejoin="round">
@@ -152,6 +156,39 @@
   <script src="cat-name.js"></script>
   <script>
     const input = document.getElementById('q');
+    const resizeHandle = document.getElementById('resizeDock');
+    let resizing = null;
+    function layoutDock() {
+      const width = Math.max(400, Math.min(560, window.innerWidth || 560));
+      document.documentElement?.style?.setProperty('--dock-scale', String(width / 560));
+      document.documentElement?.style?.setProperty('--dock-height', `${Math.round(270 * width / 560)}px`);
+    }
+    layoutDock(); window.addEventListener('resize', layoutDock);
+    function endResize() {
+      if (!resizing) return;
+      const id = resizing.id; resizing = null;
+      if (resizeHandle.hasPointerCapture(id)) resizeHandle.releasePointerCapture(id);
+      api.dockResizeEnd();
+      window.dispatchEvent(new CustomEvent('cat-drag', {detail:false}));
+    }
+    resizeHandle.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      resizing = {id:e.pointerId, x:e.screenX, width:window.innerWidth};
+      resizeHandle.setPointerCapture(e.pointerId);
+      window.dispatchEvent(new CustomEvent('cat-drag', {detail:true}));
+      e.preventDefault();
+    });
+    resizeHandle.addEventListener('pointermove', e => {
+      if (resizing && resizing.id === e.pointerId) api.dockResize(Math.max(400, Math.min(560, resizing.width + e.screenX - resizing.x)));
+    });
+    for (const event of ['pointerup','pointercancel','lostpointercapture']) resizeHandle.addEventListener(event, endResize);
+    window.addEventListener('blur', endResize);
+    resizeHandle.addEventListener('dblclick', () => { api.dockResize(560); api.dockResizeEnd(); });
+    resizeHandle.addEventListener('keydown', e => {
+      const widths = {ArrowLeft:(window.innerWidth || 560)-20, ArrowRight:(window.innerWidth || 560)+20, Home:400, End:560};
+      if (!(e.key in widths)) return;
+      e.preventDefault(); api.dockResize(Math.max(400, Math.min(560, widths[e.key]))); api.dockResizeEnd();
+    });
     const catController = TypingCat.mount(document.getElementById('cat'), input);
     for (const [id, kind] of [['giveWater', 'water'], ['giveSnack', 'snack']]) {
       const button = document.getElementById(id);
@@ -216,7 +253,7 @@
       provider = s.aiProvider || 'openai'; enabled = !!s.aiEnabled;
       toggle.textContent = enabled ? 'AI ON' : 'AI OFF'; toggle.setAttribute('aria-pressed', String(enabled));
       document.getElementById('chatTitle').textContent = 'AI chat · ' + ({openai:'OpenAI',claude:'Claude',google:'Google Gemini'}[provider]);
-      input.placeholder = enabled ? 'Ask AI…' : 'What you want to ask?';
+      input.placeholder = enabled ? 'Ask AI…' : 'Ask Something';
       if (!enabled && !panel.hidden) await showPanel(false);
     }
     function reset() { history = []; totalTokens = 0; document.getElementById('messages').replaceChildren(); document.getElementById('usage').textContent = 'Tokens appear after a reply.'; document.getElementById('chatStatus').textContent = ''; }
