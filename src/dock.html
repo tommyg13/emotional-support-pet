@@ -1,64 +1,164 @@
 <!doctype html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<style>
-  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
-    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; }
-  #wrap { position: relative; width: 560px; height: 270px; -webkit-app-region: drag; user-select: none; }
-  #cat { position: absolute; right: 44px; bottom: 62px; height: 210px; z-index: 2; pointer-events: none;
-    filter: drop-shadow(0 6px 10px rgba(60,40,30,.25)); }
-  #cat img, #cat svg { height: 100%; width: auto; display: block; }
-  #bar {
-    position: absolute; left: 16px; right: 16px; bottom: 16px; height: 72px; z-index: 1;
-    border-radius: 36px; display: flex; align-items: center; gap: 12px; padding: 0 20px 0 30px;
-    background: linear-gradient(180deg, #d9cac2, #e8dbd2);
-    box-shadow: 0 8px 24px rgba(90,60,50,.28), inset 0 1px 2px rgba(255,255,255,.55);
-  }
-  input {
-    -webkit-app-region: no-drag; flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
-    font-family: inherit; font-size: 24px; font-weight: 500; color: #4a3a36;
-  }
-  input::placeholder { color: rgba(255,255,255,.95); text-shadow: 0 1px 2px rgba(90,60,50,.25); }
-  #go { -webkit-app-region: no-drag; background: none; border: 0; cursor: pointer; padding: 8px; border-radius: 12px; }
-  #go:hover { background: rgba(255,255,255,.3); }
-  #go:focus-visible, input:focus-visible { outline: 3px solid rgba(255,92,138,.8); outline-offset: 2px; }
-  #go svg { width: 32px; height: 32px; display: block; }
-</style>
+  <meta charset="utf-8">
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    }
+
+    #wrap {
+      position: relative;
+      width: 560px;
+      height: 270px;
+      -webkit-app-region: no-drag;
+      user-select: none;
+    }
+
+    #cat {
+      position: absolute;
+      right: 44px;
+      bottom: 88px;
+      height: 190px;
+      width: 157px;
+      z-index: 2;
+      pointer-events: auto;
+      filter: drop-shadow(0 6px 10px rgba(60, 40, 30, .25));
+    }
+
+    #cat svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      overflow: visible;
+    }
+
+    #bar {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      height: 72px;
+      z-index: 1;
+      border-radius: 36px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px 0 30px;
+      background: linear-gradient(180deg, #d9cac2, #e8dbd2);
+      box-shadow: 0 8px 24px rgba(90, 60, 50, .28), inset 0 1px 2px rgba(255, 255, 255, .55);
+    }
+
+    input {
+      -webkit-app-region: no-drag;
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-family: inherit;
+      font-size: 24px;
+      font-weight: 500;
+      color: #4a3a36;
+    }
+
+    input::placeholder {
+      color: rgba(255, 255, 255, .95);
+      text-shadow: 0 1px 2px rgba(90, 60, 50, .25);
+    }
+
+    #go {
+      -webkit-app-region: no-drag;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 12px;
+    }
+
+    #go:hover {
+      background: rgba(255, 255, 255, .3);
+    }
+
+    #go:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(255, 92, 138, .8);
+      outline-offset: 2px;
+    }
+
+    #go svg {
+      width: 32px;
+      height: 32px;
+      display: block;
+    }
+  </style>
 </head>
+
 <body>
-<div id="wrap">
-  <div id="cat"></div>
-  <div id="bar">
-    <input id="q" type="text" placeholder="What you want to ask?" autocomplete="off" spellcheck="false">
-    <button id="go" title="Search (Enter)" aria-label="Search">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5v6a2 2 0 0 1-2 2H5"/><path d="M9 8l-4 5 4 5"/></svg>
-    </button>
+  <div id="wrap">
+    <div id="cat"></div>
+    <div id="bar">
+      <input id="q" type="text" placeholder="What you want to ask?" autocomplete="off" spellcheck="false">
+      <button id="go" title="Search (Enter)" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M20 5v6a2 2 0 0 1-2 2H5" />
+          <path d="M9 8l-4 5 4 5" />
+        </svg>
+      </button>
+    </div>
   </div>
-</div>
-<script src="characters.js"></script>
-<script>
-  const input = document.getElementById('q');
-  const catEl = document.getElementById('cat');
+  <script src="typing-cat.js"></script>
+  <script>
+    const input = document.getElementById('q');
+    TypingCat.mount(document.getElementById('cat'), input);
 
-  const img = new Image();
-  img.draggable = false;
-  img.onload = () => catEl.appendChild(img);
-  img.onerror = () => Characters.render(catEl, Characters.builtin.find((c) => c.id === 'cat-gray'));
-  img.src = 'assets/search-cat.webp';
+    // Explicit capture gives the animation reliable press/release state during window dragging.
+    const wrap = document.getElementById('wrap');
+    let drag = null;
+    function endDrag(e) {
+      if (!drag) return;
+      const id = drag.id;
+      drag = null;
+      if (wrap.hasPointerCapture(id)) wrap.releasePointerCapture(id);
+      api.dockDragEnd();
+      window.dispatchEvent(new CustomEvent('cat-drag', { detail: false }));
+    }
+    wrap.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('input, button')) return;
+      drag = { id: e.pointerId, x: e.screenX, y: e.screenY };
+      wrap.setPointerCapture(e.pointerId);
+      window.dispatchEvent(new CustomEvent('cat-drag', { detail: true }));
+      api.dockDragStart();
+      e.preventDefault();
+    });
+    wrap.addEventListener('pointermove', (e) => {
+      if (drag && e.pointerId === drag.id) api.dockDragMove(e.screenX - drag.x, e.screenY - drag.y);
+    });
+    wrap.addEventListener('pointerup', endDrag);
+    wrap.addEventListener('pointercancel', endDrag);
+    wrap.addEventListener('lostpointercapture', endDrag);
+    window.addEventListener('blur', endDrag);
 
-  function submit() {
-    const q = input.value.trim();
-    if (!q) return;
-    api.searchSubmit(q);
-    input.value = '';
-  }
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submit();
-    if (e.key === 'Escape') input.blur();
-  });
-  document.getElementById('go').addEventListener('click', submit);
-  api.onFocusInput(() => input.focus());
-</script>
+    function submit() {
+      const q = input.value.trim();
+      if (!q) return;
+      api.searchSubmit(q);
+      input.value = '';
+    }
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape') input.blur();
+    });
+    document.getElementById('go').addEventListener('click', submit);
+    api.onFocusInput(() => input.focus());
+  </script>
 </body>
+
 </html>

@@ -135,6 +135,7 @@ function openSettings() {
 }
 
 // ---------- search dock (cat + search bar) ----------
+let dockDrag = null;
 const DOCK_W = 560, DOCK_H = 270;
 const SEARCH_URL = 'https://www.google.com/search?q=';
 
@@ -173,7 +174,14 @@ function createDock() {
       saveSettings({ ...loadSettings(), dockPos: { x, y } });
     }
   });
-  dockWin.on('closed', () => { dockWin = null; });
+  // Screen coordinates keep tracking outside the draggable transparent dock.
+  const cursorTimer = setInterval(() => {
+    if (!dockWin || dockWin.isDestroyed() || !dockWin.isVisible() || dockWin.webContents.isLoading()) return;
+    const cursor = screen.getCursorScreenPoint();
+    const bounds = dockWin.getContentBounds();
+    dockWin.webContents.send('dock-cursor', { clientX: cursor.x - bounds.x, clientY: cursor.y - bounds.y, dragging: !!dockDrag });
+  }, 33);
+  dockWin.on('closed', () => { clearInterval(cursorTimer); dockDrag = null; dockWin = null; });
 }
 
 function applySearchDock() {
@@ -198,6 +206,19 @@ function focusSearchDock() {
   dockWin.focus();
   dockWin.webContents.send('focus-input');
 }
+
+ipcMain.on('dock-drag-start', (event) => {
+  if (!dockWin || event.sender !== dockWin.webContents) return;
+  const [x, y] = dockWin.getPosition();
+  dockDrag = { x, y };
+});
+ipcMain.on('dock-drag-move', (event, { dx, dy }) => {
+  if (!dockWin || event.sender !== dockWin.webContents || !dockDrag || !Number.isFinite(dx) || !Number.isFinite(dy)) return;
+  dockWin.setPosition(Math.round(dockDrag.x + dx), Math.round(dockDrag.y + dy));
+});
+ipcMain.on('dock-drag-end', (event) => {
+  if (dockWin && event.sender === dockWin.webContents) dockDrag = null;
+});
 
 ipcMain.on('search-submit', (_e, q) => {
   const query = String(q || '').trim().slice(0, 500);

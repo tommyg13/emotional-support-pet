@@ -11,6 +11,14 @@ contextBridge.exposeInMainWorld('api', {
   openCharactersFolder: () => ipcRenderer.send('open-characters-folder'),
   overlayDone: () => ipcRenderer.send('overlay-done'),
   searchSubmit: (q) => ipcRenderer.send('search-submit', q),
+  dockDragStart: () => ipcRenderer.send('dock-drag-start'),
+  dockDragMove: (dx, dy) => ipcRenderer.send('dock-drag-move', { dx, dy }),
+  dockDragEnd: () => ipcRenderer.send('dock-drag-end'),
+  onDockCursor: (cb) => {
+    const listener = (_event, point) => cb(point);
+    ipcRenderer.on('dock-cursor', listener);
+    return () => ipcRenderer.removeListener('dock-cursor', listener);
+  },
   onFocusInput: (cb) => ipcRenderer.on('focus-input', () => cb()),
   onPlay: (cb) => ipcRenderer.on('play', (_e, data) => cb(data)),
 });
