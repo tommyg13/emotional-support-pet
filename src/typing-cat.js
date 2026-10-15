@@ -19,7 +19,7 @@ const TypingCat = (() => {
   <linearGradient id="tc-paw" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#F2A85C"/><stop offset="1" stop-color="#F9CE97"/>
   </linearGradient>
-  <linearGradient id="tc-hat" x1="0" y1="0" x2="0" y2="1">
+  <linearGradient id="tc-hat-fill" x1="0" y1="0" x2="0" y2="1">
     <stop offset="0" stop-color="#34497D"/><stop offset="1" stop-color="#1B2748"/>
   </linearGradient>
   <linearGradient id="tc-brim" x1="0" y1="0" x2="0" y2="1">
@@ -28,17 +28,20 @@ const TypingCat = (() => {
   <radialGradient id="tc-chest" cx=".5" cy=".4" r=".6">
     <stop offset="0" stop-color="#FDE7C9"/><stop offset="1" stop-color="#FDE7C9" stop-opacity="0"/>
   </radialGradient>
+  <radialGradient id="tc-volume" cx=".32" cy=".3" r=".8"><stop offset="0" stop-color="#FFD6A2"/><stop offset=".5" stop-color="#F3AA5C"/><stop offset="1" stop-color="#C36B30"/></radialGradient>
+  <radialGradient id="tc-round-paw" cx=".36" cy=".28" r=".8"><stop offset="0" stop-color="#FFE0AD"/><stop offset=".45" stop-color="#F3B166"/><stop offset="1" stop-color="#CC7437"/></radialGradient>
 </defs>
 
 <g id="tc-root">
   <!-- body -->
   <g id="tc-body">
-    <path d="M34 330 C22 255 52 192 108 176 L192 176 C248 192 278 255 266 330 Z" fill="url(#tc-fur)"/>
+    <path d="M34 330 C22 255 52 192 108 176 L192 176 C248 192 278 255 266 330 Z" fill="url(#tc-volume)"/>
     <ellipse cx="150" cy="226" rx="52" ry="48" fill="url(#tc-chest)"/>
     <g fill="none" stroke="#D27A2E" stroke-opacity=".45" stroke-width="3" stroke-linecap="round">
-      <path d="M58 250 q10 6 14 18"/><path d="M52 282 q10 4 14 14"/>
-      <path d="M242 250 q-10 6 -14 18"/><path d="M248 282 q-10 4 -14 14"/>
+      <path d="M58 250 q10 6 14 18"/>
+      <path d="M242 250 q-10 6 -14 18"/>
     </g>
+    <ellipse cx="150" cy="196" rx="64" ry="13" fill="#875026" opacity=".14"/>
   </g>
 
   <!-- head -->
@@ -47,6 +50,7 @@ const TypingCat = (() => {
     <ellipse cx="150" cy="160" rx="42" ry="28" fill="#FDEBD2" opacity=".85"/>
     <ellipse cx="102" cy="158" rx="22" ry="16" fill="#FDEBD2" opacity=".55"/>
     <ellipse cx="198" cy="158" rx="22" ry="16" fill="#FDEBD2" opacity=".55"/>
+    <g id="tc-features">
     <!-- eyes -->
     <g id="tc-eyeL"><ellipse cx="116" cy="128" rx="10" ry="12" fill="#1B1522"/><ellipse cx="119" cy="123" rx="3.6" ry="4" fill="#fff" opacity=".9"/><ellipse cx="113" cy="133" rx="1.6" ry="1.8" fill="#fff" opacity=".5"/></g>
     <g id="tc-eyeR"><ellipse cx="184" cy="128" rx="10" ry="12" fill="#1B1522"/><ellipse cx="187" cy="123" rx="3.6" ry="4" fill="#fff" opacity=".9"/><ellipse cx="181" cy="133" rx="1.6" ry="1.8" fill="#fff" opacity=".5"/></g>
@@ -75,9 +79,10 @@ const TypingCat = (() => {
       <path d="M188 160 Q220 150 248 152"/><path d="M188 166 Q220 168 244 178"/><path d="M186 172 Q210 184 230 202"/>
     </g>
 
+    </g>
   <!-- hat: attached to the head so both share one pivot -->
   <g id="tc-hat"><g transform="translate(0 -26) rotate(-3 150 94)">
-    <path d="M62 92 C86 66 105 29 135 8 C153 -5 181 0 201 19 Q211 30 207 42 Q190 26 174 31 C185 52 211 77 238 92 Z" fill="url(#tc-hat)"/>
+    <path d="M62 92 C86 66 105 29 135 8 C153 -5 181 0 201 19 Q211 30 207 42 Q190 26 174 31 C185 52 211 77 238 92 Z" fill="url(#tc-hat-fill)"/>
     <path d="M92 70 C108 44 128 28 146 20" fill="none" stroke="#4A63A0" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>
     <path d="M78 78 Q151 94 222 79 L238 92 Q150 116 62 92Z" fill="#7561A8"/>
     <path d="M142 90 l9 -7 10 7 -3 12 -13 0Z" fill="#EBC878" stroke="#AA7839" stroke-width="2"/>
@@ -114,25 +119,15 @@ const TypingCat = (() => {
   <!-- Flexible forelegs stay attached while the rounded paws reach. -->
   <path id="tc-armL" d="M80 247 Q72 279 78 302 Q100 318 122 302 Q126 276 120 247" fill="url(#tc-fur)" stroke="#C97A2E" stroke-opacity=".3" stroke-width="1.5"/>
   <g id="tc-pawL">
-    <path d="M72 303 C68 286 76 278 85 282 Q93 272 101 280 Q112 274 119 284 C132 282 134 301 126 314 Q100 333 75 316Z" fill="url(#tc-paw)" stroke="#C97A2E" stroke-opacity=".4" stroke-width="1.5"/>
-    <g fill="none" stroke="#C97A2E" stroke-opacity=".45" stroke-width="1.7" stroke-linecap="round"><path d="M85 284 q-3 7 -1 12"/><path d="M101 281 v13"/><path d="M118 286 q3 5 1 10"/></g>
-    <g id="tc-padsL" opacity="0" fill="#DB9290">
-      <ellipse cx="100" cy="307" rx="12" ry="9"/>
-      <ellipse cx="83" cy="297" rx="5" ry="6" transform="rotate(-20 83 297)"/>
-      <ellipse cx="100" cy="290" rx="5" ry="6"/>
-      <ellipse cx="117" cy="297" rx="5" ry="6" transform="rotate(20 117 297)"/>
-    </g>
+    <path d="M73 302 C71 289 79 279 88 281 Q96 274 104 281 Q115 277 120 285 C129 288 130 302 123 310 Q100 326 77 310Z" fill="url(#tc-round-paw)" stroke="#B9743D" stroke-opacity=".22" stroke-width="1.3"/>
+    <path d="M86 285q-3 5-2 11 M101 282v12 M115 287q3 4 2 9" fill="none" stroke="#BB7B47" stroke-width="1.5" stroke-linecap="round" opacity=".65"/>
+    <g id="tc-padsL" fill="#D38E95" opacity="0"><ellipse cx="100" cy="304" rx="10" ry="7"/><ellipse cx="87" cy="294" rx="4" ry="5"/><ellipse cx="100" cy="289" rx="4" ry="5"/><ellipse cx="113" cy="294" rx="4" ry="5"/></g>
   </g>
   <path id="tc-armR" d="M180 247 Q172 279 178 302 Q200 318 222 302 Q226 276 220 247" fill="url(#tc-fur)" stroke="#C97A2E" stroke-opacity=".3" stroke-width="1.5"/>
   <g id="tc-pawR">
-    <path d="M172 303 C168 286 176 278 185 282 Q193 272 201 280 Q212 274 219 284 C232 282 234 301 226 314 Q200 333 175 316Z" fill="url(#tc-paw)" stroke="#C97A2E" stroke-opacity=".4" stroke-width="1.5"/>
-    <g fill="none" stroke="#C97A2E" stroke-opacity=".45" stroke-width="1.7" stroke-linecap="round"><path d="M185 284 q-3 7 -1 12"/><path d="M201 281 v13"/><path d="M218 286 q3 5 1 10"/></g>
-    <g id="tc-padsR" opacity="0" fill="#DB9290">
-      <ellipse cx="200" cy="307" rx="12" ry="9"/>
-      <ellipse cx="183" cy="297" rx="5" ry="6" transform="rotate(-20 183 297)"/>
-      <ellipse cx="200" cy="290" rx="5" ry="6"/>
-      <ellipse cx="217" cy="297" rx="5" ry="6" transform="rotate(20 217 297)"/>
-    </g>
+    <path d="M173 302 C171 289 179 279 188 281 Q196 274 204 281 Q215 277 220 285 C229 288 230 302 223 310 Q200 326 177 310Z" fill="url(#tc-round-paw)" stroke="#B9743D" stroke-opacity=".22" stroke-width="1.3"/>
+    <path d="M186 285q-3 5-2 11 M201 282v12 M215 287q3 4 2 9" fill="none" stroke="#BB7B47" stroke-width="1.5" stroke-linecap="round" opacity=".65"/>
+    <g id="tc-padsR" fill="#D38E95" opacity="0"><ellipse cx="200" cy="304" rx="10" ry="7"/><ellipse cx="187" cy="294" rx="4" ry="5"/><ellipse cx="200" cy="289" rx="4" ry="5"/><ellipse cx="213" cy="294" rx="4" ry="5"/></g>
   </g>
 
   <g id="tc-yarn" opacity="0" pointer-events="none">${yarnArt}</g>
@@ -148,7 +143,7 @@ const TypingCat = (() => {
     const el = {
       dream: $("tc-dream"), dreamIcons: [$("tc-dream-fish"), $("tc-dream-yarn"), $("tc-dream-heart")],
       body: $("tc-body"), yarn: $("tc-yarn"), water: $("tc-water"), snack: $("tc-snack"),
-      head: $("tc-head"),
+      head: $("tc-head"), features: $("tc-features"), hat: $("tc-hat"),
       armL: $("tc-armL"), armR: $("tc-armR"),
       padsL: $("tc-padsL"), padsR: $("tc-padsR"),
       tongue: $("tc-tongue"),
@@ -596,6 +591,10 @@ const TypingCat = (() => {
         k = reduce ? 0.3 : 1;
       const breathe = Math.sin(t * (sleepy ? 1.5 : 2.1)) * (sleepy ? 0.9 : 0.6);
       const by = (breathe - celebrationLift - bob * (2.2 + speed * 2.5) + (waking ? -5 * Math.sin(Math.PI * wakeAge / 950) : 0)) * k;
+      // A small parallax shift suggests a turn, while all mouth details stay attached.
+      const turn = reduce || dragging || sleepy ? 0 : gazeX * 0.8;
+      el.features.setAttribute('transform', `translate(${turn * 10} 0) translate(150 140) scale(${1 - Math.abs(turn) * 0.06} 1) translate(-150 -140)`);
+      el.hat.setAttribute('transform', `translate(${-turn * 3} 0)`);
       el.body.setAttribute("transform", `translate(0 ${by * 0.5})${belly > 0.001 ? ` translate(150 280) scale(${1 + belly * 0.16} 1) translate(-150 -280)` : ''}`);
       el.head.setAttribute("transform", `translate(${hx} ${by + hy - welcomeLift + napPose * 10 + yarnWatch * 12}) rotate(${yarnTilt + welcomeTilt + gazeX * 3 * k + (napPose * 8) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
 
@@ -617,16 +616,17 @@ const TypingCat = (() => {
         const dy = dragging ? 0 : pawOffset(p, now) * k +
           clamp(py - 310, -55, 0) * catchAmount + waveLift - 30 * hoverReachStrength;
         const x = i ? 200 : 100;
-        const rot = clamp(dx * 0.18, -10, 10);
+        const tapLift = pawOffset(p, now) * k;
+        const wristRoll = !reduce && !dragging && p.lift ? (i ? -1 : 1) * clamp(-tapLift / p.lift, 0, 1) * 6 : 0;
+        const rot = clamp(dx * 0.18 + wristRoll, -12, 12);
         const endX = x + dx, endY = 300 + dy;
         const arm = i ? el.armR : el.armL;
-        // A constant-width, rounded foreleg avoids folded or pointed arm silhouettes.
-        arm.setAttribute("d", `M${x} 250 Q${x + dx * 0.2} ${275 + dy * 0.25} ${endX} ${endY}`);
-        arm.setAttribute("fill", "none");
-        arm.setAttribute("stroke", "url(#tc-fur)");
-        arm.setAttribute("stroke-width", "39");
-        arm.setAttribute("stroke-opacity", "1");
-        arm.setAttribute("stroke-linecap", "round");
+        // Tapered forearm stays attached to the shoulder and wrist at every reach.
+        arm.setAttribute("d", `M${x-16} 240 C${x-26} 259 ${endX-24} ${endY-24} ${endX-21} ${endY+2} Q${endX} ${endY+14} ${endX+21} ${endY+2} C${endX+24} ${endY-24} ${x+25} 259 ${x+16} 240 Q${x} 232 ${x-16} 240Z`);
+        arm.setAttribute("fill", "url(#tc-volume)");
+        arm.setAttribute("stroke", "#BD793C");
+        arm.setAttribute("stroke-width", "1");
+        arm.setAttribute("stroke-opacity", "0");
         (i ? el.padsR : el.padsL).setAttribute("opacity", clamp((-dy - 18) / 70, 0, 0.48).toFixed(2));
         p.el.setAttribute(
           "transform",

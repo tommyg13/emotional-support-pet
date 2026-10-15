@@ -355,3 +355,18 @@ test('reduced motion shows a static dream without floating or fading',()=>{
   assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),1);
   assert.equal(f.elements['#tc-dream'].attrs.transform,'translate(0 0)');
 });
+
+test('rounded forearms and wrist rotation remain valid through rapid typing, reach, and drag',()=>{
+ const f=fixture();
+ for(let t=0;t<1600;t+=80){f.step(t);f.key('a');f.step(t+35);}
+ for(const id of ['#tc-armL','#tc-armR']) {assert.match(f.elements[id].attrs.d,/Z$/);assert.ok(!/NaN|Infinity/.test(f.elements[id].attrs.d));assert.equal(f.elements[id].attrs.fill,'url(#tc-volume)');}
+ f.window.dispatchEvent({type:'pointermove',clientX:220,clientY:260});f.step(2600);f.step(3000);
+ assert.ok(!/NaN|Infinity/.test(f.elements['#tc-armR'].attrs.d));
+ f.window.dispatchEvent({type:'cat-drag',detail:true});f.step(3050);
+ assert.equal(f.elements['#tc-pawL'].attrs.transform,'translate(0.00 0.00) rotate(0.00 100 300)');
+});
+test('face parallax follows gaze and stays still with reduced motion',()=>{
+ for(const reduced of [false,true]) {const f=fixture(reduced);f.window.dispatchEvent({type:'pointermove',clientX:290,clientY:140});f.step(200);f.step(250);
+ if(reduced)assert.match(f.elements['#tc-features'].attrs.transform,/^translate\(0 0\)/);
+ else assert.ok(Number(f.elements['#tc-features'].attrs.transform.match(/translate\(([^ ]+)/)[1])>0);}
+});
