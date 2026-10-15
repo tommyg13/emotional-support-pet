@@ -1,15 +1,17 @@
-const { app, BrowserWindow, ipcMain, screen, Menu, shell, globalShortcut, dialog, net } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, shell, globalShortcut, dialog, net, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const ai = require('./ai');
 const { pathToFileURL } = require('url');
 
-let btnWin, overlayWin, settingsWin, dockWin;
+let btnWin, overlayWin, settingsWin, dockWin, breakWin;
+let activeSeconds = 0, snoozeUntil = 0, lastBreakTick = Date.now();
 let playing = false;
 let safetyTimer = null;
 let dragStart = null;
 
-const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai' };
+const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
+const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm' };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
@@ -25,6 +27,51 @@ function saveSettings(s) {
   fs.writeFileSync(settingsFile(), JSON.stringify(s, null, 2));
 }
 
+// Only count active computer time. Long sleep/standby gaps are ignored.
+function tickBreakReminder() {
+  const now = Date.now(), elapsed = now - lastBreakTick;
+  lastBreakTick = now;
+  const settings = loadSettings();
+  if (!settings.breakReminderEnabled || !settings.searchDock) { activeSeconds = 0; return; }
+  if (elapsed > 10000 || powerMonitor.getSystemIdleTime() >= 60 || (dockWin && !dockWin.isVisible())) return;
+  if (breakWin && !breakWin.isDestroyed()) return;
+  if (now < snoozeUntil) return;
+  activeSeconds += elapsed / 1000;
+  if (activeSeconds >= settings.breakReminderMinutes * 60) {
+    activeSeconds = 0;
+    showBreakReminder();
+  }
+}
+function showBreakReminder() {
+  if (!dockWin || dockWin.isDestroyed() || (breakWin && !breakWin.isDestroyed())) return;
+  const b = dockWin.getBounds(), display = screen.getDisplayMatching(b), wa = display.workArea;
+  const w = 360, h = 360;
+  const x = Math.max(wa.x, Math.min(b.x + b.width - w, wa.x + wa.width - w));
+  const y = Math.max(wa.y, Math.min(b.y - h + 65, wa.y + wa.height - h));
+  breakWin = new BrowserWindow({ width:w, height:h, x:Math.round(x), y:Math.round(y), frame:false, transparent:true,
+    hasShadow:false, resizable:false, skipTaskbar:true, alwaysOnTop:true, fullscreenable:false,
+    webPreferences:{preload:path.join(__dirname,'preload.js')} });
+  breakWin.setAlwaysOnTop(true, 'floating');
+  breakWin.loadFile(path.join(__dirname,'break-reminder.html'));
+  breakWin.on('closed', () => { breakWin = null; });
+}
+function closeBreakReminder(snooze = true) {
+  if (snooze) snoozeUntil = Date.now() + 15 * 60 * 1000;
+  activeSeconds = 0;
+  if (breakWin && !breakWin.isDestroyed()) breakWin.close();
+}
+setInterval(tickBreakReminder, 1000).unref();
+
+ipcMain.handle('is-dev-mode', (event) => !!(DEV_MODE && settingsWin && event.sender === settingsWin.webContents));
+ipcMain.handle('dev-cat-action', (event, action, value) => {
+  if (!DEV_MODE || !settingsWin || event.sender !== settingsWin.webContents) return false;
+  if (action === 'break') { showBreakReminder(); return true; }
+  if (!dockWin || dockWin.isDestroyed()) return false;
+  if (action === 'mood' && ['normal','bored','sleepy','auto'].includes(value)) dockWin.webContents.send('cat-dev-mood', value);
+  else if (action === 'wave') dockWin.webContents.send('cat-dev-wave');
+  else return false;
+  return true;
+});
 // ---------- custom characters (gif / png / svg / lottie json) ----------
 function ensureCharsDir() {
   fs.mkdirSync(charsDir(), { recursive: true });
@@ -275,12 +322,18 @@ function summon(characterId) {
 }
 
 // ---------- IPC ----------
+ipcMain.on('break-dismiss', (event, snooze) => { if (breakWin && event.sender === breakWin.webContents) closeBreakReminder(snooze !== false); });
 ipcMain.on('summon', (_e, id) => summon(id));
 ipcMain.on('overlay-done', finishPlayback);
 ipcMain.handle('get-settings', () => loadSettings());
 ipcMain.handle('set-settings', (_e, patch) => {
   const next = { ...loadSettings(), ...patch };
+  next.breakReminderEnabled = !!next.breakReminderEnabled;
+  next.breakReminderMinutes = [30,45,60,90,120].includes(Number(next.breakReminderMinutes)) ? Number(next.breakReminderMinutes) : 60;
+  next.catPersonality = ['calm', 'playful', 'sleepy'].includes(next.catPersonality) ? next.catPersonality : 'calm';
   saveSettings(next);
+  if ('catPersonality' in patch && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('cat-personality', next.catPersonality);
+  if (!next.breakReminderEnabled) closeBreakReminder(false);
   if ('searchDock' in patch) applySearchDock();
   return next;
 });

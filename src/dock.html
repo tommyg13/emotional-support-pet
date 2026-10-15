@@ -135,7 +135,10 @@
   <script src="typing-cat.js"></script>
   <script>
     const input = document.getElementById('q');
-    TypingCat.mount(document.getElementById('cat'), input);
+    const catController = TypingCat.mount(document.getElementById('cat'), input);
+    api.getSettings().then(s => catController.setPersonality(s.catPersonality || 'calm')).catch(() => {});
+    api.onCatPersonality(value => catController.setPersonality(value));
+    api.onDevCatAction((action, value) => window.dispatchEvent(new CustomEvent(action === 'mood' ? 'cat-dev-mood' : 'cat-dev-wave', { detail: value }))); 
 
     // Explicit capture gives the animation reliable press/release state during window dragging.
     const wrap = document.getElementById('wrap');
@@ -198,27 +201,28 @@
     async function submit() {
       const q = input.value.trim(); if (!q || busy) return;
       await refresh();
-      if (!enabled) { api.searchSubmit(q); input.value = ''; return; }
+      if (!enabled) { api.searchSubmit(q); input.value = ''; catController.searchCompleted(); return; }
       await showPanel(true);
       if (!(await api.aiStatus(provider)).configured || !activeModel) {
         document.getElementById('chatStatus').textContent = 'Choose a provider, save your API key and select an official model in Settings.'; return;
       }
       if (q.length > 30000 || history.length >= 98) { document.getElementById('chatStatus').textContent = 'Message or conversation too long. Start a new chat.'; return; }
       busy = true; document.getElementById('go').disabled = true; toggle.disabled = true;
-      document.getElementById('newChat').disabled = true; input.value = ''; message('user', q);
+      document.getElementById('newChat').disabled = true; input.value = ''; catController.queryReset(); message('user', q);
       document.getElementById('chatStatus').textContent = 'Thinking…';
       const messages = [...history, {role:'user', content:q}];
       try {
         const reply = await api.aiChat(messages);
         history = [...messages, {role:'assistant',content:reply.text}]; message('assistant', reply.text);
+        catController.searchCompleted();
         const u = reply.usage; if (u.total != null) totalTokens += u.total;
         document.getElementById('usage').textContent = `${reply.model} · Input: ${u.input ?? '—'} · Output: ${u.output ?? '—'} · This reply: ${u.total ?? '—'} · Session: ${totalTokens} tokens`;
         document.getElementById('chatStatus').textContent = '';
-      } catch(e) { message('error', e.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); input.value = q; document.getElementById('chatStatus').textContent = 'Not sent to conversation history. You can retry.'; }
+      } catch(e) { message('error', e.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); input.value = q; catController.queryReset(); document.getElementById('chatStatus').textContent = 'Not sent to conversation history. You can retry.'; }
       finally { busy = false; document.getElementById('go').disabled = false; toggle.disabled = false; document.getElementById('newChat').disabled = false; input.focus(); }
     }
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submit();
+      if (e.key === 'Enter' && !e.isComposing && !e.repeat) submit();
       if (e.key === 'Escape') input.blur();
     });
     document.getElementById('go').addEventListener('click', submit);

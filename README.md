@@ -46,3 +46,4 @@ Release a new version:
 ## Search dock (cat + search bar)
 Toggle it in "Choose character…" -> Extras, or right-click the heart -> "Search dock". Enter opens a Google search in the browser.
 To use your own cat image, save it as `src/assets/search-cat.webp` (otherwise a built-in drawn cat is shown).
+

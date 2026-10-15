@@ -11,6 +11,10 @@
   h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.01em; }
   p.sub { margin: 0 0 22px; color: var(--muted); }
   h2 { font-size: 15px; margin: 24px 0 10px; color: var(--muted); font-weight: 600; }
+  .tabs { display:flex;gap:7px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0 12px;border-bottom:1px solid var(--line); }
+  .tab { border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:12px;padding:9px 13px;cursor:pointer;font:inherit; }
+  .tab[aria-selected="true"] { background:var(--pink);color:white;border-color:var(--pink); }
+  .tab-panel[hidden] { display:none!important; }
   .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
   .card { border:2px solid var(--line); border-radius:16px; padding:8px 8px 10px; text-align:center; cursor:pointer; background: transparent; color: inherit; font: inherit; }
   .card:hover { border-color: #ffb3c7; }
@@ -34,9 +38,18 @@
 <body>
 <h1>Choose your support buddy</h1>
 <p class="sub">Click one to pick it. The next press of the heart button brings it up.</p>
-<div id="groups"></div>
+<nav class="tabs" role="tablist" aria-label="Settings sections">
+<button class="tab" role="tab" aria-selected="true" aria-controls="tab-pets" id="btn-pets" data-tab="pets">🐾 Pets</button>
+<button class="tab" role="tab" aria-selected="false" aria-controls="tab-search" id="btn-search" data-tab="search">🔎 Search Cat</button>
+<button class="tab" role="tab" aria-selected="false" aria-controls="tab-ai" id="btn-ai" data-tab="ai">💬 AI</button>
+<button class="tab" role="tab" aria-selected="false" aria-controls="tab-dev" id="btn-dev" data-tab="dev" hidden>🛠 Developer</button>
+</nav>
+<section id="tab-pets" class="tab-panel" role="tabpanel" aria-labelledby="btn-pets"><div id="groups"></div>
 
-<h2>AI chat</h2>
+<div class="row"><label>Summon duration <b id="durLabel"></b> s <input id="dur" type="range" min="2" max="12" step="1"></label></div>
+<div class="row"><button class="act" id="test">Try it now</button><button class="act alt" id="folder">Open my characters folder</button></div>
+</section>
+<section id="tab-ai" class="tab-panel" role="tabpanel" aria-labelledby="btn-ai" hidden><h2>AI chat</h2>
 <div style="display:grid;gap:10px;max-width:420px">
 <label>Provider <select id="aiProvider"><option value="openai">OpenAI</option><option value="claude">Claude (Anthropic)</option><option value="google">Google Gemini</option></select></label>
 <label>Model <select id="aiModel" style="max-width:100%"></select></label>
@@ -46,23 +59,45 @@
 <p id="aiStatus" role="status" class="hint" style="margin:0"></p>
 <p class="hint" style="margin:0">Turn AI ON beside Send to chat. Messages go directly to your selected provider using your API account. Keys are encrypted on this computer. Chat history stays in memory until you close the dock or start a new chat.</p>
 </div>
-<h2>Extras</h2>
+</section><section id="tab-search" class="tab-panel" role="tabpanel" aria-labelledby="btn-search" hidden><h2>Search Cat</h2>
 <label class="toggle"><input type="checkbox" id="dockToggle"> Show the search dock (cat with a search bar)</label>
 <p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the cat to move it.</p>
 
-<div class="row">
-  <label>Stays on screen for <b id="durLabel"></b> s <br><input id="dur" type="range" min="2" max="12" step="1"></label>
-</div>
-<div class="row">
-  <button class="act" id="test">Try it now</button>
-  <button class="act alt" id="folder">Open my characters folder</button>
-</div>
-
+<h2>Cat personality</h2>
+<p class="hint">Choose how lively your cat feels. All personalities work offline. Sleepy rests sooner; Playful is more expressive.</p>
+<div class="row"><label>Personality <select id="catPersonality"><option value="calm">Calm — gentle, subtle</option><option value="playful">Playful — curious and energetic</option><option value="sleepy">Sleepy — relaxed and drowsy</option></select></label></div>
+<h2>Search Cat breaks</h2>
+<label class="toggle"><input type="checkbox" id="breakEnabled"> Enable gentle break reminders</label>
+<p class="hint">After continuous computer activity, a larger cat appears. Close or snooze it for 15 minutes. Time away from the computer does not count.</p>
+<div class="row"><label>Remind me every <select id="breakMinutes"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option><option value="120">120 minutes</option></select></label></div>
+</section>
+<section id="tab-dev" class="tab-panel" role="tabpanel" aria-labelledby="btn-dev" hidden>
+<h2>Developer tools</h2><p class="sub">Preview moods instantly without waiting for inactivity timers. These controls appear only in developer mode.</p>
+<div class="row"><button class="act alt" data-mood="normal">Curious</button><button class="act alt" data-mood="bored">Bored</button><button class="act alt" data-mood="sleepy">Sleepy 💤</button><button class="act alt" data-mood="auto">Automatic</button></div>
+<div class="row"><button class="act alt" id="devWave">Wave 👋</button><button class="act alt" id="devBreak">Show break reminder</button></div>
+<p id="devStatus" class="hint" role="status"></p>
+</section>
 <script src="../node_modules/lottie-web/build/player/lottie.min.js"></script>
 <script src="characters.js"></script>
 <script>
 (async () => {
   const settings = await api.getSettings();
+  const tabs = [...document.querySelectorAll('[data-tab]')];
+  function activateTab(id) {
+    for (const tab of tabs) {
+      const selected = tab.dataset.tab === id;
+      tab.setAttribute('aria-selected', String(selected));
+      document.getElementById('tab-' + tab.dataset.tab).hidden = !selected;
+    }
+  }
+  tabs.forEach(tab => tab.onclick = () => activateTab(tab.dataset.tab));
+  if (await api.isDevMode()) {
+    document.getElementById('btn-dev').hidden = false;
+    document.querySelectorAll('[data-mood]').forEach(btn => btn.onclick = () => api.devCatAction('mood', btn.dataset.mood));
+    document.getElementById('devWave').onclick = () => api.devCatAction('wave');
+    document.getElementById('devBreak').onclick = () => api.devCatAction('break');
+  }
+
   const provider = document.getElementById('aiProvider'), key = document.getElementById('aiKey'), aiStatus = document.getElementById('aiStatus'), modelSelect = document.getElementById('aiModel');
   const selectedModels = {...(settings.aiModels || {})};
   let loading = false;
@@ -151,6 +186,15 @@
   dur.oninput = () => { lab.textContent = dur.value; };
   dur.onchange = () => api.setSettings({ duration: Number(dur.value) });
 
+  const catPersonality = document.getElementById('catPersonality');
+  catPersonality.value = settings.catPersonality || 'calm';
+  catPersonality.onchange = () => api.setSettings({ catPersonality: catPersonality.value });
+  const breakEnabled = document.getElementById('breakEnabled');
+  const breakMinutes = document.getElementById('breakMinutes');
+  breakEnabled.checked = !!settings.breakReminderEnabled;
+  breakMinutes.value = String(settings.breakReminderMinutes || 60);
+  breakEnabled.onchange = () => api.setSettings({ breakReminderEnabled: breakEnabled.checked });
+  breakMinutes.onchange = () => api.setSettings({ breakReminderMinutes: Number(breakMinutes.value) });
   const dockToggle = document.getElementById('dockToggle');
   dockToggle.checked = !!settings.searchDock;
   dockToggle.onchange = () => api.setSettings({ searchDock: dockToggle.checked });

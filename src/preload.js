@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
+  isDevMode: () => ipcRenderer.invoke('is-dev-mode'),
+  devCatAction: (action, value) => ipcRenderer.invoke('dev-cat-action', action, value),
+  dismissBreak: (snooze = true) => ipcRenderer.send('break-dismiss', snooze),
   summon: (id) => ipcRenderer.send('summon', id),
   dragStart: () => ipcRenderer.send('drag-start'),
   dragMove: (dx, dy) => ipcRenderer.send('drag-move', { dx, dy }),
@@ -20,6 +23,18 @@ contextBridge.exposeInMainWorld('api', {
   dockDragStart: () => ipcRenderer.send('dock-drag-start'),
   dockDragMove: (dx, dy) => ipcRenderer.send('dock-drag-move', { dx, dy }),
   dockDragEnd: () => ipcRenderer.send('dock-drag-end'),
+  onCatPersonality: (cb) => {
+    const listener = (_event, value) => cb(value);
+    ipcRenderer.on('cat-personality', listener);
+    return () => ipcRenderer.removeListener('cat-personality', listener);
+  },
+  onDevCatAction: (cb) => {
+    const mood = (_event, value) => cb('mood', value);
+    const wave = () => cb('wave');
+    ipcRenderer.on('cat-dev-mood', mood);
+    ipcRenderer.on('cat-dev-wave', wave);
+    return () => { ipcRenderer.removeListener('cat-dev-mood', mood); ipcRenderer.removeListener('cat-dev-wave', wave); };
+  },
   onDockCursor: (cb) => {
     const listener = (_event, point) => cb(point);
     ipcRenderer.on('dock-cursor', listener);
