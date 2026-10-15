@@ -230,3 +230,37 @@ test('dock care buttons call the controller without submitting a search',async()
   const f=await dockFixture(); f.get('giveWater').listeners.click(); f.get('giveSnack').listeners.click();
   assert.deepEqual(f.submitted,['water','snack']); assert.equal(f.completed(),0);
 });
+
+function settleNap(f, start=300000) {
+  for(let t=start;t<=start+2500;t+=50) f.step(t);
+}
+test('inactivity settles into a lowered nap pose with closed eyes and mouth drool',()=>{
+  const f=fixture(); settleNap(f);
+  assert.equal(f.container.dataset.mood,'sleepy');
+  assert.ok(Number(f.elements['#tc-drool'].attrs.opacity)>.8);
+  assert.ok(Number(f.elements['#tc-sleep-eyes'].attrs.opacity)>.95);
+  assert.equal(f.elements['#tc-mouth'].attrs.d,'M137 164 Q150 171 163 164');
+  const head=f.elements['#tc-head'].attrs.transform;
+  assert.ok(Number(head.match(/rotate\(([^ ]+)/)[1])>7.5);
+  assert.ok(Number(head.match(/translate\(0 ([^)]+)/)[1])>9);
+  assert.equal(f.elements['#tc-pawL'].attrs.transform,'translate(0.00 0.00) rotate(0.00 100 300)');
+});
+test('focus, typing, care, or dragging hide sleep drool without breaking wake reactions',()=>{
+  for(const action of ['focus','typing','care','drag']) {
+    const f=fixture(); settleNap(f);
+    if(action==='focus') f.input.dispatchEvent({type:'focus'});
+    if(action==='typing') f.key('a');
+    if(action==='care') f.controller.giveCare('water');
+    if(action==='drag') f.window.dispatchEvent({type:'cat-drag',detail:true});
+    f.step(302550); assert.equal(Number(f.elements['#tc-drool'].attrs.opacity),0);
+    if(action==='focus'||action==='typing') assert.equal(f.elements['#tc-mouth'].attrs.d,welcomeSmile);
+    if(action==='care') assert.equal(f.elements['#tc-mouth'].attrs.d,'M133 163 Q150 186 167 163');
+    assert.ok(f.pending());
+  }
+});
+test('reduced-motion naps keep a static head pose and drool; normal cat never drools',()=>{
+  const f=fixture(true); f.step(500); assert.equal(Number(f.elements['#tc-drool'].attrs.opacity),0);
+  settleNap(f); assert.ok(Number(f.elements['#tc-drool'].attrs.opacity)>.8);
+  const body=Number(f.elements['#tc-body'].attrs.transform.match(/translate\(0 ([^)]+)/)[1]);
+  assert.equal(f.elements['#tc-head'].attrs.transform,`translate(0 ${body*2}) rotate(0 150 175)`);
+});

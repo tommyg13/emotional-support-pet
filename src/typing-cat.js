@@ -52,6 +52,10 @@ const TypingCat = (() => {
     <!-- nose + mouth -->
     <path d="M142 147 Q150 143 158 147 Q156 156 150 158 Q144 156 142 147Z" fill="#E98F8C"/>
     <path id="tc-mouth" d="M150 158 v5 M150 163 q-7 7 -15 2 M150 163 q7 7 15 2" fill="none" stroke="#B8665E" stroke-width="1.8" stroke-linecap="round"/>
+    <g id="tc-drool" opacity="0" pointer-events="none">
+      <path d="M163 165 Q166 168 165 175 L166 181 Q170 187 165 190 Q159 191 160 185 L161 175 Q160 169 163 165Z" fill="#BCE8F2" stroke="#83BED1" stroke-width="1" fill-opacity=".85"/>
+      <path d="M163 179v6" stroke="#F4FDFF" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
     <g id="tc-tongue" opacity="0">
       <path d="M143 166 Q150 163 157 166 L157 175 C157 185 143 185 143 175Z" fill="#ED8799" stroke="#C96C7F" stroke-width="1.2"/>
       <path d="M150 169 v7" fill="none" stroke="#C96C7F" stroke-width="1.1" stroke-linecap="round"/>
@@ -130,7 +134,7 @@ const TypingCat = (() => {
       armL: $("tc-armL"), armR: $("tc-armR"),
       padsL: $("tc-padsL"), padsR: $("tc-padsR"),
       tongue: $("tc-tongue"),
-      mouth: $("tc-mouth"), blush: $("tc-blush"), hearts: $("tc-pet-hearts"),
+      mouth: $("tc-mouth"), drool: $("tc-drool"), blush: $("tc-blush"), hearts: $("tc-pet-hearts"),
       eyeL: $("tc-eyeL"),
       eyeR: $("tc-eyeR"), sleepEyes: $("tc-sleep-eyes"), zzz: $("tc-zzz"),
       pawL: $("tc-pawL"),
@@ -438,6 +442,10 @@ const TypingCat = (() => {
       const wakeAge = now - wakeStart, yawnAge = now - yawnStart;
       const waking = wakeAge >= 0 && wakeAge < 950 && !reduce;
       const yawning = yawnAge >= 0 && yawnAge < 1100 && !reduce;
+      // Settle the head into the chest; paws retain their existing animation path.
+      const napPose = reduce || dragging ? 0 : sleepBlend;
+      const napping = sleepy && !yawning && !dragging;
+      el.drool.setAttribute('opacity', napping ? (sleepBlend * 0.85).toFixed(3) : '0');
       el.sleepEyes.setAttribute('opacity', Math.max(sleepBlend, petting ? 0.95 : 0).toFixed(3));
       // Rare delight after a successful pet, never while typing or during reduced motion.
       if (!focused && !reduce && !petting && pettingStarted > 0 && now - pettingUntil > 0 &&
@@ -485,6 +493,7 @@ const TypingCat = (() => {
       const mouthWidth = 15 + smile * 5;
       el.mouth.setAttribute("d", `M150 158 v5 M150 163 q${-7-smile*2} ${7+smile*5} ${-mouthWidth} ${2-smile*4} M150 163 q${7+smile*2} ${7+smile*5} ${mouthWidth} ${2-smile*4}`);
       el.blush.setAttribute("opacity", Math.max(careHappy ? 0.6 : 0, smile * 0.28, petting ? 0.65 : delighted ? 0.55 : 0).toFixed(3));
+      if (napping) el.mouth.setAttribute('d', 'M137 164 Q150 171 163 164');
       if (welcoming) el.mouth.setAttribute('d', 'M138 164 Q150 175 162 164');
       if (delighted) el.mouth.setAttribute("d", "M132 163 Q150 185 168 163");
       if (celebrating) el.mouth.setAttribute('d', `M135 163 Q150 ${163 + profile().celebrationSmile} 165 163`);
@@ -509,7 +518,7 @@ const TypingCat = (() => {
       const breathe = Math.sin(t * (sleepy ? 1.5 : 2.1)) * (sleepy ? 0.9 : 0.6);
       const by = (breathe - celebrationLift - bob * (2.2 + speed * 2.5) + (waking ? -5 * Math.sin(Math.PI * wakeAge / 950) : 0)) * k;
       el.body.setAttribute("transform", `translate(0 ${by * 0.5})${belly > 0.001 ? ` translate(150 280) scale(${1 + belly * 0.16} 1) translate(-150 -280)` : ''}`);
-      el.head.setAttribute("transform", `translate(${hx} ${by + hy - welcomeLift}) rotate(${welcomeTilt + gazeX * 3 * k + (sleepy ? 3 * sleepBlend : 0) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
+      el.head.setAttribute("transform", `translate(${hx} ${by + hy - welcomeLift + napPose * 10}) rotate(${welcomeTilt + gazeX * 3 * k + (napPose * 8) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
 
 
       for (const [i, p] of paws.entries()) {
