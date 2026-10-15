@@ -128,6 +128,7 @@
     <div id="care" role="group" aria-label="Care for your cat">
       <button id="giveWater" class="care-button" type="button" aria-label="Give the cat water" title="Give water"><span>Water</span></button>
       <button id="giveSnack" class="care-button" type="button" aria-label="Give the cat a fish treat" title="Give a fish treat"><span>Fish treat</span></button>
+      <button id="playYarn" class="care-button" type="button" aria-label="Play with a yarn ball" title="Play with yarn"><span>Yarn</span></button>
     </div>
     <div id="careBubble" role="status" aria-live="polite" hidden>So happy… but I’m full! Let’s paws for a moment. ♡</div>
     <div id="bar">
@@ -156,6 +157,8 @@
       button.insertAdjacentHTML('afterbegin', TypingCat.careIcons[kind]);
       button.addEventListener('click', () => catController.giveCare(kind));
     }
+    document.getElementById('playYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
+    document.getElementById('playYarn').addEventListener('click', () => catController.playYarn());
     document.getElementById('cat').addEventListener('cat-care-full', e => {
       document.getElementById('careBubble').hidden = !e.detail.full;
     });

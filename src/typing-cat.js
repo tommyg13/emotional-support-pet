@@ -2,6 +2,8 @@
    Usage: TypingCat.mount(containerEl, inputEl)  (no dependencies, transparent background) */
 const TypingCat = (() => {
   // Shared vector artwork for the dock controls and the mouth-held items.
+  const yarnArt = `<circle cx="32" cy="32" r="23" fill="#C6A0D8" stroke="#886399" stroke-width="2.5"/><g fill="none" stroke="#F1DFF5" stroke-width="2.5" stroke-linecap="round"><path d="M15 17q18 3 33 25M10 27q17 1 30 25M24 10q18 8 29 23M17 49q5-21 28-35M27 54q4-20 27-30"/></g><path d="M13 47Q1 51 6 58q5 4 11-1" fill="none" stroke="#886399" stroke-width="2.5" stroke-linecap="round"/>`;
+  const yarnIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">${yarnArt}</svg>`;
   const careIcons = {
     water: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true"><path d="M25 13h14v9l6 7v25q0 5-5 5H24q-5 0-5-5V29l6-7Z" fill="#DDF5FA" stroke="#528EAA" stroke-width="2.5"/><path d="M20 36q12 5 24 0v17q0 5-5 5H25q-5 0-5-5Z" fill="#80CEE6"/><rect x="24" y="6" width="16" height="9" rx="3" fill="#7396C7" stroke="#496E9F" stroke-width="2"/><path d="M25 28v17" stroke="white" stroke-width="3" stroke-linecap="round"/><path d="M32 39q-10 11 0 12q10-1 0-12" fill="#EFFBFF"/></svg>`,
     snack: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true"><path d="M16 32 5 21v22Z" fill="#D78B49" stroke="#A96634" stroke-width="2.5" stroke-linejoin="round"/><path d="M15 32Q37 7 59 32Q37 57 15 32Z" fill="#F5BE70" stroke="#A96634" stroke-width="2.5"/><path d="m32 18 6-6 7 9M32 46l6 6 7-9" fill="#E7A355" stroke="#A96634" stroke-width="2" stroke-linejoin="round"/><path d="M35 22q-8 10 0 20" fill="none" stroke="#D18B47" stroke-width="2"/><circle cx="47" cy="28" r="2.5" fill="#513A36"/><path d="M25 29v6m-5-3h10" stroke="#FFF0CC" stroke-width="2" stroke-linecap="round"/></svg>`,
@@ -119,6 +121,7 @@ const TypingCat = (() => {
     </g>
   </g>
 
+  <g id="tc-yarn" opacity="0" pointer-events="none">${yarnArt}</g>
 </g>
 </svg>`;
 
@@ -129,7 +132,7 @@ const TypingCat = (() => {
     container.innerHTML = SVG;
     const $ = (id) => container.querySelector("#" + id);
     const el = {
-      body: $("tc-body"), water: $("tc-water"), snack: $("tc-snack"),
+      body: $("tc-body"), yarn: $("tc-yarn"), water: $("tc-water"), snack: $("tc-snack"),
       head: $("tc-head"),
       armL: $("tc-armL"), armR: $("tc-armR"),
       padsL: $("tc-padsL"), padsR: $("tc-padsR"),
@@ -192,11 +195,13 @@ const TypingCat = (() => {
     let searchReaction = null, searchReactionStart = -1e9;
     function startSearchReaction(name) {
       welcomeStart = -1e9;
+      stopYarn();
       attention();
       searchReaction = name;
       searchReactionStart = performance.now();
     }
     function queryChanged(event) {
+      stopYarn();
       returnToSearch();
       const query = input.value, now = performance.now();
       if (!event.isComposing && previousQuery.trim().length >= LONG_QUERY_LENGTH && !query.trim()) {
@@ -211,12 +216,34 @@ const TypingCat = (() => {
     function queryReset() { previousQuery = input.value || ''; }
     function searchCompleted() { queryReset(); startSearchReaction('celebrate'); }
     input.addEventListener('input', queryChanged);
+    let yarnStart = -1e9, yarnRunning = false;
+    const yarnProfiles = {
+      calm: { duration: 3000, delay: 0, interest: 0.85 },
+      playful: { duration: 2400, delay: 0, interest: 1 },
+      sleepy: { duration: 3600, delay: 500, interest: 0.65 },
+    };
+    let yarnProfile = yarnProfiles.calm;
+    function stopYarn() {
+      yarnRunning = false;
+      el.yarn.setAttribute('opacity', '0');
+    }
+    function playYarn() {
+      const now = performance.now();
+      if (!alive || dragging || yarnRunning || now < focusUntil || now - lastKey < 450 || now < happyUntil) return false;
+      stopYarn();
+      attention(); welcomeStart = -1e9; wakeStart = -1e9; yawnStart = -1e9;
+      searchReaction = null; idleGestureStart = -1e9;
+      yarnProfile = yarnProfiles[personality]; yarnStart = now; yarnRunning = true;
+      nextIdleAt = Math.max(nextIdleAt, now + yarnProfile.duration + 2000);
+      return true;
+    }
     let careKind = null, careStart = -1e9, happyUntil = -1e9, fullUntil = -1e9;
     let careClicks = [], belly = 0, wasFull = false;
     function giveCare(kind) {
       if (!alive || dragging || !Object.hasOwn(careIcons, kind)) return false;
       const now = performance.now();
       if (now - careStart < 350) return false; // Ignore double clicks; never queue reactions.
+      stopYarn();
       attention(); welcomeStart = -1e9; wakeStart = -1e9; yawnStart = -1e9;
       careKind = kind; careStart = now; happyUntil = now + 2200;
       careClicks = careClicks.filter(t => now - t < 12000).slice(-4);
@@ -288,9 +315,9 @@ const TypingCat = (() => {
       } else if (lastStrokeX === null) lastStrokeX = px;
     }
     let wasHoveringForWake = false;
-    function onDrag(e) { dragging = e.detail; if (dragging) reach = 0; }
+    function onDrag(e) { if (e.detail) stopYarn(); dragging = e.detail; if (dragging) reach = 0; }
     window.addEventListener("cat-drag", onDrag);
-    function clearPointer() { pointer = null; wasHoveringForWake = false; resetPetStroke(); }
+    function clearPointer() { stopYarn(); pointer = null; wasHoveringForWake = false; resetPetStroke(); }
     window.addEventListener("pointermove", onPointer);
     window.addEventListener("blur", clearPointer);
     document.addEventListener("pointerleave", clearPointer);
@@ -343,6 +370,7 @@ const TypingCat = (() => {
         e.key.startsWith("Arrow")
       )
         return;
+      stopYarn();
       returnToSearch();
       const now = performance.now();
       if (!e.repeat) noteTyping(now);
@@ -394,7 +422,7 @@ const TypingCat = (() => {
       if (wasFocused && !focused) nextIdleAt = Math.max(nextIdleAt, now + 1200);
       wasFocused = focused;
       // Lightweight autonomous gestures. Never preempt typing, petting, or reaching.
-      if (!focused && now >= nextIdleAt) {
+      if (!yarnRunning && !focused && now >= nextIdleAt) {
         const cfg = profile();
         nextIdleAt = now + cfg.idleMin + Math.random() * (cfg.idleMax - cfg.idleMin);
         if (!reduce && !dragging && !pointer && mood === 'normal' && activeReaction(now) === 'idle') {
@@ -403,8 +431,23 @@ const TypingCat = (() => {
           if (Math.random() < cfg.waveChance) wave();
         }
       }
+      const yarnAge = now - yarnStart;
+      if (yarnRunning && yarnAge >= yarnProfile.duration) {
+        yarnRunning = false;
+      }
+      const yarnProgress = clamp(yarnAge / yarnProfile.duration, 0, 1);
+      const yarnX = -120 + 320 * Math.sin(Math.PI * yarnProgress);
+      const yarnY = 300;
+      el.yarn.setAttribute('opacity', yarnRunning && !dragging ? '1' : '0');
+      el.yarn.setAttribute('transform', `translate(${reduce ? -80 : yarnX} ${yarnY}) rotate(${reduce ? 0 : (yarnX + 120) * 2.7}) scale(0.65) translate(-32 -32)`);
+      const yarnWatch = yarnRunning && !reduce && yarnAge >= yarnProfile.delay
+        ? Math.min(1, (yarnAge - yarnProfile.delay) / 250, (yarnProfile.duration - yarnAge) / 350) * yarnProfile.interest : 0;
+      // Smile on approach, while the ball is close, rather than after it rolls away.
+      const yarnHappy = yarnRunning && !dragging && yarnProgress >= 0.32 && yarnProgress <= 0.62;
+      const yarnAimX = clamp((yarnX - 150) / 130, -1, 1);
+      const yarnTilt = yarnAimX * yarnWatch * 20;
       const idleAge = now - idleGestureStart;
-      const idleAmount = !focused && !reduce && !pointer && mood === 'normal' && activeReaction(now) === 'idle' && idleAge >= 0 && idleAge < 1200
+      const idleAmount = !yarnRunning && !focused && !reduce && !pointer && mood === 'normal' && activeReaction(now) === 'idle' && idleAge >= 0 && idleAge < 1200
         ? Math.sin(Math.PI * idleAge / 1200) * profile().motion : 0;
       const careAge = now - careStart;
       const caring = !dragging && careAge >= 0 && careAge < 1400;
@@ -494,6 +537,7 @@ const TypingCat = (() => {
       el.mouth.setAttribute("d", `M150 158 v5 M150 163 q${-7-smile*2} ${7+smile*5} ${-mouthWidth} ${2-smile*4} M150 163 q${7+smile*2} ${7+smile*5} ${mouthWidth} ${2-smile*4}`);
       el.blush.setAttribute("opacity", Math.max(careHappy ? 0.6 : 0, smile * 0.28, petting ? 0.65 : delighted ? 0.55 : 0).toFixed(3));
       if (napping) el.mouth.setAttribute('d', 'M137 164 Q150 171 163 164');
+      if (yarnHappy) el.mouth.setAttribute('d', 'M137 164 Q150 175 163 164');
       if (welcoming) el.mouth.setAttribute('d', 'M138 164 Q150 175 162 164');
       if (delighted) el.mouth.setAttribute("d", "M132 163 Q150 185 168 163");
       if (celebrating) el.mouth.setAttribute('d', `M135 163 Q150 ${163 + profile().celebrationSmile} 165 163`);
@@ -510,15 +554,15 @@ const TypingCat = (() => {
       if (dragging) reach = 0;
       const inputBounds = peek ? input.getBoundingClientRect() : null;
       const peekX = inputBounds ? clamp(((inputBounds.left + inputBounds.width / 2 - bounds.left) / bounds.width * 300 - 150) / 180, -1, 1) : 0;
-      const gazeX = lookX * (1 - peek) + peekX * peek;
-      const gazeY = lookY * (1 - peek) + peek;
+      const gazeX = (lookX * (1 - peek) + peekX * peek) * (1 - yarnWatch) + yarnAimX * yarnWatch;
+      const gazeY = (lookY * (1 - peek) + peek) * (1 - yarnWatch) + yarnWatch;
       const hx = gazeX * (sleepy ? 0 : bored ? 2 : reduce ? 2 : 9) + (idleGesture === 'glance' ? idleAmount * 4 : 0), hy = gazeY * (sleepy ? 0 : reduce ? 2 : 7);
       const t = now / 1000,
         k = reduce ? 0.3 : 1;
       const breathe = Math.sin(t * (sleepy ? 1.5 : 2.1)) * (sleepy ? 0.9 : 0.6);
       const by = (breathe - celebrationLift - bob * (2.2 + speed * 2.5) + (waking ? -5 * Math.sin(Math.PI * wakeAge / 950) : 0)) * k;
       el.body.setAttribute("transform", `translate(0 ${by * 0.5})${belly > 0.001 ? ` translate(150 280) scale(${1 + belly * 0.16} 1) translate(-150 -280)` : ''}`);
-      el.head.setAttribute("transform", `translate(${hx} ${by + hy - welcomeLift + napPose * 10}) rotate(${welcomeTilt + gazeX * 3 * k + (napPose * 8) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
+      el.head.setAttribute("transform", `translate(${hx} ${by + hy - welcomeLift + napPose * 10 + yarnWatch * 12}) rotate(${yarnTilt + welcomeTilt + gazeX * 3 * k + (napPose * 8) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
 
 
       for (const [i, p] of paws.entries()) {
@@ -562,7 +606,7 @@ const TypingCat = (() => {
       }
       const bu = (now - blinkT0) / 140;
       const sy = bu >= 0 && bu <= 1 ? 1 - 0.9 * Math.sin(bu * Math.PI) : 1;
-      const eye = `translate(${gazeX * 3} ${128 + gazeY * 2}) scale(1 ${(Math.max(0.02, (1 - sleepBlend) * (1 - boredomBlend * 0.55) * (careHappy ? 0.6 : petting ? 0.03 : surprised ? 1.3 : celebrating ? profile().celebrationEye : 1) * (surprised ? 1 : sy * welcomeBlink))).toFixed(3)}) translate(0 -128)`;
+      const eye = `translate(${gazeX * (3 + yarnWatch * 6)} ${128 + gazeY * (2 + yarnWatch * 4)}) scale(1 ${(Math.max(0.02, (1 - sleepBlend) * (1 - boredomBlend * 0.55) * (careHappy ? 0.6 : petting ? 0.03 : surprised ? 1.3 : celebrating ? profile().celebrationEye : 1) * (surprised ? 1 : sy * welcomeBlink))).toFixed(3)}) translate(0 -128)`;
       el.eyeL.setAttribute("transform", eye);
       el.eyeR.setAttribute("transform", eye);
 
@@ -574,8 +618,9 @@ const TypingCat = (() => {
     window.addEventListener('cat-dev-mood', onDevMood);
     window.addEventListener('cat-dev-wave', onDevWave);
     return {
-      setMood: devMood, setPersonality, wave, searchCompleted, queryReset, giveCare,
+      setMood: devMood, setPersonality, wave, searchCompleted, queryReset, giveCare, playYarn,
       destroy() {
+        stopYarn();
         alive = false;
         cancelAnimationFrame(frameId);
         window.removeEventListener("cat-drag", onDrag);
@@ -592,5 +637,5 @@ const TypingCat = (() => {
       },
     };
   }
-  return { mount, careIcons };
+  return { mount, careIcons, yarnIcon };
 })();

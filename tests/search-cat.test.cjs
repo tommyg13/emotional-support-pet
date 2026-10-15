@@ -75,7 +75,7 @@ async function dockFixture(aiEnabled=false, fail=false) {
     aiPanel:async()=>{}, aiStatus:async()=>({configured:true}), searchSubmit:q=>submitted.push(q),
     aiChat:async()=>{if(fail) throw Error('offline'); return {text:'ok',model:'test-model',usage:{}};}};
   const context=vm.createContext({api, document:{getElementById:get, createElement:()=>({scrollIntoView(){}})},
-    window:{addEventListener(){}}, TypingCat:{careIcons:{water:'',snack:''},mount:()=>({giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
+    window:{addEventListener(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
   const html=fs.readFileSync(path.join(sourceDir,'dock.html'),'utf8');
   vm.runInContext([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1],context);
   await new Promise(resolve=>setImmediate(resolve));
@@ -263,4 +263,59 @@ test('reduced-motion naps keep a static head pose and drool; normal cat never dr
   settleNap(f); assert.ok(Number(f.elements['#tc-drool'].attrs.opacity)>.8);
   const body=Number(f.elements['#tc-body'].attrs.transform.match(/translate\(0 ([^)]+)/)[1]);
   assert.equal(f.elements['#tc-head'].attrs.transform,`translate(0 ${body*2}) rotate(0 150 175)`);
+});
+
+test('yarn rolls, head and eyes follow, smiles on approach, and ignores repeat clicks',()=>{
+  const f=fixture(); assert.equal(f.controller.playYarn(),true); f.step(300);
+  assert.equal(f.elements['#tc-yarn'].attrs.opacity,'1');
+  const before=f.elements['#tc-yarn'].attrs.transform;
+  const earlyTilt = Number(f.elements['#tc-head'].attrs.transform.match(/rotate\(([^ ]+)/)[1]);
+  assert.equal(f.controller.playYarn(),false); f.step(900);
+  assert.notEqual(f.elements['#tc-yarn'].attrs.transform,before);
+  assert.match(f.elements['#tc-eyeL'].attrs.transform,/^translate\(-/);
+  assert.ok(earlyTilt < -3);
+  assert.notEqual(f.elements['#tc-mouth'].attrs.d,'M137 164 Q150 175 163 164');
+  f.step(1200); assert.equal(f.elements['#tc-mouth'].attrs.d,'M137 164 Q150 175 163 164');
+  f.step(1500);
+  const nearTilt = Number(f.elements['#tc-head'].attrs.transform.match(/rotate\(([^ ]+)/)[1]);
+  assert.ok(Math.abs(nearTilt) < Math.abs(earlyTilt));
+  f.step(2400); assert.notEqual(f.elements['#tc-mouth'].attrs.d,'M137 164 Q150 175 163 164');
+  f.step(3000); assert.equal(f.elements['#tc-yarn'].attrs.opacity,'0');
+  assert.notEqual(f.elements['#tc-mouth'].attrs.d,'M137 164 Q150 175 163 164');
+});
+test('typing, care, search, drag, blur, and destroy interrupt yarn',()=>{
+  for(const action of ['typing','input','care','search','drag','blur','destroy']) {
+    const f=fixture(); f.controller.playYarn(); f.step(500);
+    if(action==='typing') f.key('a');
+    if(action==='input') f.change('paste');
+    if(action==='care') f.controller.giveCare('water');
+    if(action==='search') f.controller.searchCompleted();
+    if(action==='drag') f.window.dispatchEvent({type:'cat-drag',detail:true});
+    if(action==='blur') f.window.dispatchEvent({type:'blur'});
+    if(action==='destroy') f.controller.destroy();
+    f.step(570); assert.equal(f.elements['#tc-yarn'].attrs.opacity,'0');
+    if(action==='typing') assert.match(f.elements['#tc-pawL'].attrs.transform,/translate\(0.00 -/);
+  }
+});
+test('yarn respects personality and reduced motion',()=>{
+  const amounts=[];
+  for(const personality of ['playful','calm','sleepy']) {
+    const f=fixture(); f.controller.setPersonality(personality); f.controller.playYarn(); f.step(350);
+    amounts.push(Math.abs(Number(f.elements['#tc-eyeL'].attrs.transform.match(/translate\(([^ ]+)/)[1])));
+  }
+  assert.ok(amounts[0]>amounts[1]); assert.equal(amounts[2],0);
+  const f=fixture(true); f.controller.playYarn(); f.step(300); const transform=f.elements['#tc-yarn'].attrs.transform;
+  f.step(900); assert.equal(f.elements['#tc-yarn'].attrs.transform,transform);
+  assert.match(f.elements['#tc-eyeL'].attrs.transform,/^translate\(0 /);
+});
+test('dock yarn button plays without feeding or searching',async()=>{
+  const f=await dockFixture(); f.get('playYarn').listeners.click(); assert.deepEqual(f.submitted,['yarn']);
+});
+
+test('yarn crosses the face with a clearly visible left-to-right head turn and gaze',()=>{
+  const f=fixture(); f.controller.playYarn(); f.step(300);
+  const tilt=()=>Number(f.elements['#tc-head'].attrs.transform.match(/rotate\(([^ ]+)/)[1]);
+  const eye=()=>Number(f.elements['#tc-eyeL'].attrs.transform.match(/translate\(([^ ]+)/)[1]);
+  assert.ok(tilt() < -15); assert.ok(eye() < -5);
+  f.step(1500); assert.ok(tilt() > 5); assert.ok(eye() > 2);
 });
