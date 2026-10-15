@@ -18,12 +18,13 @@ function fixture(reduced = false) {
   input.getBoundingClientRect = () => ({left:-300, top:364, width:300, height:72});
   container.querySelector = id => elements[id] ||= new Element();
   const math = Object.create(Math); math.random = () => random;
-  const context = vm.createContext({window, document, performance:{now:() => now}, Date, Math:math,
+  const context = vm.createContext({window, document, performance:{now:() => now}, Date:{now:() => now}, Math:math,
     matchMedia:() => ({matches:reduced}), CustomEvent:class {constructor(type, props) {this.type=type; Object.assign(this, props);}},
     requestAnimationFrame:f => {pending=f; return 1;}, cancelAnimationFrame:() => {pending=null;}});
   vm.runInContext(fs.readFileSync(path.join(sourceDir, 'typing-cat.js'), 'utf8') + '\nthis.cat = TypingCat;', context);
   const controller = context.cat.mount(container, input);
   return {controller, elements, input, window, container,
+    setRandom(value) {random=value;},
     step(t) {now=t; const f=pending; pending=null; f?.(t);},
     change(value) {input.value=value; input.dispatchEvent({type:'input'});},
     key(key) {input.dispatchEvent({type:'keydown', key});},
@@ -68,13 +69,13 @@ test('dock inline script syntax is valid and completion is wired to both search 
 });
 async function dockFixture(aiEnabled=false, fail=false) {
   const elements={}; let completed=0, resets=0, submitted=[];
-  const get=id => elements[id] ||= {value:'', dataset:{}, hidden:true, listeners:{}, setAttribute(){}, appendChild(){}, scrollIntoView(){}, replaceChildren(){}, focus(){}, addEventListener(n,f){this.listeners[n]=f;}};
+  const get=id => elements[id] ||= {value:'', dataset:{}, hidden:true, listeners:{}, insertAdjacentHTML(){}, setAttribute(){}, appendChild(){}, scrollIntoView(){}, replaceChildren(){}, focus(){}, addEventListener(n,f){this.listeners[n]=f;}};
   const settings={aiEnabled, aiProvider:'openai', aiModels:{openai:'test-model'}};
   const api={getSettings:async()=>settings, onCatPersonality(){}, onDevCatAction(){}, onFocusInput(){},
     aiPanel:async()=>{}, aiStatus:async()=>({configured:true}), searchSubmit:q=>submitted.push(q),
     aiChat:async()=>{if(fail) throw Error('offline'); return {text:'ok',model:'test-model',usage:{}};}};
   const context=vm.createContext({api, document:{getElementById:get, createElement:()=>({scrollIntoView(){}})},
-    window:{addEventListener(){}}, TypingCat:{mount:()=>({setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
+    window:{addEventListener(){}}, TypingCat:{careIcons:{water:'',snack:''},mount:()=>({giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
   const html=fs.readFileSync(path.join(sourceDir,'dock.html'),'utf8');
   vm.runInContext([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1],context);
   await new Promise(resolve=>setImmediate(resolve));
@@ -91,4 +92,141 @@ test('dock celebrates browser handoff and AI success, never empty input or faile
     if(fail) {assert.ok(f.get('q').value.length>24); assert.equal(f.resets(),2);}
     else assert.equal(f.get('q').value,'');
   }
+});
+
+// Use fixed random draws to compare personalities without flaky statistical tests.
+test('personalities change peek probability and cooldown while retaining typing motion', () => {
+  for (const [personality, chanceDraw, cooldown] of [['calm', 0.3, 7000], ['playful', 0.5, 4500], ['sleepy', 0.1, 12000]]) {
+    const f = fixture(); f.controller.setPersonality(personality); f.setRandom(chanceDraw);
+    f.step(2000); f.key('a'); f.change('a'); f.step(2500);
+    assert.match(f.elements['#tc-eyeL'].attrs.transform, /^translate\(-/);
+    f.step(2000 + cooldown - 1); f.change('ab'); f.step(2000 + cooldown - 0.5);
+    assert.match(f.elements['#tc-eyeL'].attrs.transform, /^translate\(0 /);
+    f.step(2000 + cooldown); f.key('c'); f.change('abc'); f.step(2000 + cooldown + 70);
+    assert.match(f.elements['#tc-eyeL'].attrs.transform, /^translate\(-/);
+    assert.match(f.elements['#tc-pawR'].attrs.transform, /translate\(0.00 -/);
+  }
+  for (const personality of ['calm', 'sleepy']) {
+    const f = fixture(); f.controller.setPersonality(personality); f.setRandom(0.5);
+    f.step(2000); f.change('a'); f.step(2500);
+    assert.match(f.elements['#tc-eyeL'].attrs.transform, /^translate\(0 /);
+  }
+});
+test('celebrations have distinct personality intensity and honor reduced motion', () => {
+  for (const [personality, lift, smile, eye] of [['calm',5,18,.65], ['playful',8,24,.45], ['sleepy',2,10,.8]]) {
+    for (const reduced of [false,true]) {
+      const f = fixture(reduced); f.controller.setPersonality(personality); f.controller.searchCompleted(); f.step(550);
+      const expected = (Math.sin(.55 * 2.1) * .6 - (reduced ? 0 : lift)) * (reduced ? .3 : 1) * .5;
+      assert.equal(f.elements['#tc-body'].attrs.transform, `translate(0 ${expected})`);
+      assert.equal(f.elements['#tc-mouth'].attrs.d, `M135 163 Q150 ${163 + smile} 165 163`);
+      assert.ok(f.elements['#tc-eyeL'].attrs.transform.includes(`scale(1 ${eye.toFixed(3)})`));
+      f.step(1200); assert.notEqual(f.elements['#tc-mouth'].attrs.d, `M135 163 Q150 ${163 + smile} 165 163`);
+    }
+  }
+});
+
+function typeContinuously(f, end = 7000) {
+  for (let t = 0; t <= end; t += 500) { f.step(t); f.key('a'); }
+}
+test('sustained typing quiets idle gestures through pauses, then personality returns', () => {
+  for (const reduced of [false, true]) {
+    const f = fixture(reduced); f.controller.setPersonality('playful'); f.setRandom(.5);
+    typeContinuously(f); f.step(7070);
+    assert.match(f.elements['#tc-pawL'].attrs.transform, /translate\(0.00 -/);
+    f.step(7500); f.step(8000);
+    assert.match(f.elements['#tc-head'].attrs.transform, /rotate\(0 150 175\)/);
+    f.step(9999); assert.match(f.elements['#tc-head'].attrs.transform, /rotate\(0 150 175\)/);
+    f.step(10000); f.step(11200); f.step(11800);
+    assert.match(f.elements['#tc-head'].attrs.transform, reduced ? /rotate\(0 150 175\)/ : /rotate\(5 150 175\)/);
+  }
+});
+test('sparse typing does not quiet personality gestures', () => {
+  const f = fixture(); f.controller.setPersonality('playful'); f.setRandom(.5);
+  for (const t of [0, 2000, 4000]) { f.step(t); f.key('a'); }
+  f.step(6500); f.step(7100);
+  assert.match(f.elements['#tc-head'].attrs.transform, /rotate\(5 150 175\)/);
+});
+test('search expressions remain available during a focused typing session', () => {
+  const f = fixture(); typeContinuously(f);
+  f.controller.searchCompleted(); f.step(7200);
+  assert.equal(f.elements['#tc-mouth'].attrs.d, 'M135 163 Q150 181 165 163');
+  f.change('a'.repeat(24)); f.change(''); f.step(7300);
+  assert.ok(f.elements['#tc-mouth'].attrs.d.includes('a5 7'));
+  f.controller.destroy(); assert.equal(f.pending(), false);
+});
+
+const welcomeSmile = 'M138 164 Q150 175 162 164';
+test('welcome follows real boredom or sleep once, with personality-specific gestures', () => {
+  for (const [personality, idle] of [['calm',120000], ['playful',150000], ['sleepy',180000]]) {
+    const f = fixture(); f.controller.setPersonality(personality); f.setRandom(.99);
+    f.step(idle); assert.notEqual(f.container.dataset.mood, 'normal');
+    f.input.dispatchEvent({type:'focus'}); f.step(idle + 700);
+    assert.equal(f.elements['#tc-mouth'].attrs.d, welcomeSmile);
+    if (personality === 'playful') assert.match(f.elements['#tc-head'].attrs.transform, /rotate\(6 150 175\)/);
+    if (personality === 'calm') {
+      const body = Number(f.elements['#tc-body'].attrs.transform.match(/translate\(0 ([^)]+)\)/)[1]);
+      assert.equal(f.elements['#tc-head'].attrs.transform, `translate(0 ${body * 2 - 3}) rotate(0 150 175)`);
+    }
+    if (personality === 'sleepy') {
+      const scale = Number(f.elements['#tc-eyeL'].attrs.transform.match(/scale\(1 ([^)]+)\)/)[1]);
+      assert.ok(scale <= .1 && scale > 0);
+    }
+    f.input.dispatchEvent({type:'focus'}); f.step(idle + 1500);
+    assert.notEqual(f.elements['#tc-mouth'].attrs.d, welcomeSmile);
+    f.controller.destroy(); assert.equal(f.input.listeners.focus.size,0);
+  }
+});
+test('normal focus does not greet; typing into an already-focused idle input does', () => {
+  const f = fixture(); f.input.dispatchEvent({type:'focus'}); f.step(700);
+  assert.notEqual(f.elements['#tc-mouth'].attrs.d,welcomeSmile);
+  f.step(120000); f.key('a'); f.step(120070);
+  assert.equal(f.elements['#tc-mouth'].attrs.d,welcomeSmile);
+  assert.match(f.elements['#tc-pawL'].attrs.transform,/translate\(0.00 -/);
+  f.controller.searchCompleted(); f.step(120100);
+  assert.equal(f.elements['#tc-mouth'].attrs.d,'M135 163 Q150 181 165 163');
+});
+test('reduced motion greeting has a smile without added head motion or slow blink', () => {
+  const f=fixture(true); f.controller.setPersonality('sleepy'); f.step(60000);
+  f.input.dispatchEvent({type:'focus'}); f.step(60700);
+  assert.equal(f.elements['#tc-mouth'].attrs.d,welcomeSmile);
+  const body=Number(f.elements['#tc-body'].attrs.transform.match(/translate\(0 ([^)]+)\)/)[1]);
+  assert.equal(f.elements['#tc-head'].attrs.transform,`translate(0 ${body*2}) rotate(0 150 175)`);
+  assert.ok(f.elements['#tc-eyeL'].attrs.transform.includes('scale(1 1.000)'));
+});
+
+test('water and fish appear at the mouth, make the cat happy, and expire', () => {
+  for (const kind of ['water', 'snack']) {
+    const f=fixture(); assert.equal(f.controller.giveCare(kind),true); f.step(300);
+    assert.equal(f.elements['#tc-'+kind].attrs.opacity,'1.000');
+    assert.equal(f.elements['#tc-'+(kind==='water'?'snack':'water')].attrs.opacity,'0');
+    assert.equal(f.elements['#tc-mouth'].attrs.d,'M133 163 Q150 186 167 163');
+    f.key('a'); f.step(370); assert.match(f.elements['#tc-pawL'].attrs.transform,/translate\(0.00 -/);
+    f.step(1500); assert.equal(Number(f.elements['#tc-'+kind].attrs.opacity),0);
+    f.step(2300); assert.notEqual(f.elements['#tc-mouth'].attrs.d,'M133 163 Q150 186 167 163');
+  }
+});
+test('repeated care gives a temporary belly and full signal, spam is bounded', () => {
+  const f=fixture(); const events=[]; f.container.addEventListener('cat-care-full',e=>events.push(e.detail.full));
+  f.controller.giveCare('water');
+  for(let i=0;i<20;i++) assert.equal(f.controller.giveCare('snack'),false);
+  for(const t of [400,800,1200,1600]) {f.step(t); f.controller.giveCare('snack');}
+  f.step(1800); assert.deepEqual(events,[true]); assert.match(f.elements['#tc-body'].attrs.transform,/scale\(1\./);
+  f.step(6200); assert.deepEqual(events,[true,false]);
+  for(let t=6250;t<=8500;t+=50) f.step(t);
+  assert.ok(!f.elements['#tc-body'].attrs.transform.includes('scale'));
+  assert.equal(f.controller.giveCare('invalid'),false);
+  f.controller.destroy(); assert.equal(f.controller.giveCare('water'),false);
+});
+test('care honors dragging and reduced motion; old treats do not accumulate', () => {
+  const f=fixture(true); f.window.dispatchEvent({type:'cat-drag',detail:true});
+  assert.equal(f.controller.giveCare('snack'),false);
+  f.window.dispatchEvent({type:'cat-drag',detail:false});
+  for(const t of [0,13000,26000,39000,52000]) {f.step(t); f.controller.giveCare('water');}
+  f.step(52300); assert.equal(f.elements['#tc-water'].attrs.opacity,'1.000');
+  assert.ok(!f.elements['#tc-body'].attrs.transform.includes('scale'));
+  f.step(53500); assert.equal(Number(f.elements['#tc-water'].attrs.opacity),0);
+});
+test('dock care buttons call the controller without submitting a search',async()=>{
+  const f=await dockFixture(); f.get('giveWater').listeners.click(); f.get('giveSnack').listeners.click();
+  assert.deepEqual(f.submitted,['water','snack']); assert.equal(f.completed(),0);
 });

@@ -1,6 +1,11 @@
 /* typing-cat.js — orange wizard cat that types when you type.
    Usage: TypingCat.mount(containerEl, inputEl)  (no dependencies, transparent background) */
 const TypingCat = (() => {
+  // Shared vector artwork for the dock controls and the mouth-held items.
+  const careIcons = {
+    water: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true"><path d="M25 13h14v9l6 7v25q0 5-5 5H24q-5 0-5-5V29l6-7Z" fill="#DDF5FA" stroke="#528EAA" stroke-width="2.5"/><path d="M20 36q12 5 24 0v17q0 5-5 5H25q-5 0-5-5Z" fill="#80CEE6"/><rect x="24" y="6" width="16" height="9" rx="3" fill="#7396C7" stroke="#496E9F" stroke-width="2"/><path d="M25 28v17" stroke="white" stroke-width="3" stroke-linecap="round"/><path d="M32 39q-10 11 0 12q10-1 0-12" fill="#EFFBFF"/></svg>`,
+    snack: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true"><path d="M16 32 5 21v22Z" fill="#D78B49" stroke="#A96634" stroke-width="2.5" stroke-linejoin="round"/><path d="M15 32Q37 7 59 32Q37 57 15 32Z" fill="#F5BE70" stroke="#A96634" stroke-width="2.5"/><path d="m32 18 6-6 7 9M32 46l6 6 7-9" fill="#E7A355" stroke="#A96634" stroke-width="2" stroke-linejoin="round"/><path d="M35 22q-8 10 0 20" fill="none" stroke="#D18B47" stroke-width="2"/><circle cx="47" cy="28" r="2.5" fill="#513A36"/><path d="M25 29v6m-5-3h10" stroke="#FFF0CC" stroke-width="2" stroke-linecap="round"/></svg>`,
+  };
   const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -34 300 364" width="100%" height="100%">
 <defs>
   <linearGradient id="tc-fur" x1="0" y1="0" x2="0" y2="1">
@@ -55,6 +60,9 @@ const TypingCat = (() => {
       <ellipse cx="106" cy="153" rx="13" ry="7"/>
       <ellipse cx="194" cy="153" rx="13" ry="7"/>
     </g>
+    <!-- Items live inside the head group, so they follow the mouth exactly. -->
+    <g id="tc-water" opacity="0" pointer-events="none"><g transform="rotate(-48 150 164)"><svg x="118" y="154" width="64" height="64">${careIcons.water}</svg></g></g>
+    <g id="tc-snack" opacity="0" pointer-events="none"><g transform="rotate(-35 150 164)"><svg x="100" y="137" width="54" height="54">${careIcons.snack}</svg></g></g>
     <!-- whiskers -->
     <g stroke="#FFF6EA" stroke-opacity=".9" stroke-width="1.4" stroke-linecap="round" fill="none">
       <path d="M112 160 Q80 150 52 152"/><path d="M112 166 Q80 168 56 178"/><path d="M114 172 Q90 184 70 202"/>
@@ -117,7 +125,7 @@ const TypingCat = (() => {
     container.innerHTML = SVG;
     const $ = (id) => container.querySelector("#" + id);
     const el = {
-      body: $("tc-body"),
+      body: $("tc-body"), water: $("tc-water"), snack: $("tc-snack"),
       head: $("tc-head"),
       armL: $("tc-armL"), armR: $("tc-armR"),
       padsL: $("tc-padsL"), padsR: $("tc-padsR"),
@@ -131,15 +139,16 @@ const TypingCat = (() => {
     let mood = 'normal', lastAttention = Date.now(), wakeUntil = 0;
     let personality = 'calm';
     const profiles = {
-      calm: { boredMs: 120000, sleepMs: 300000, idleMin: 11000, idleMax: 23000, waveChance: 0.16, motion: 0.65 },
-      playful: { boredMs: 150000, sleepMs: 420000, idleMin: 6500, idleMax: 14000, waveChance: 0.45, motion: 1 },
-      sleepy: { boredMs: 60000, sleepMs: 180000, idleMin: 15000, idleMax: 30000, waveChance: 0.08, motion: 0.4 },
+      calm: { boredMs: 120000, sleepMs: 300000, idleMin: 11000, idleMax: 23000, waveChance: 0.16, motion: 0.65, peekChance: 0.35, peekCooldownMs: 7000, celebrationLift: 5, celebrationSmile: 18, celebrationEye: 0.65 },
+      playful: { boredMs: 150000, sleepMs: 420000, idleMin: 6500, idleMax: 14000, waveChance: 0.45, motion: 1, peekChance: 0.6, peekCooldownMs: 4500, celebrationLift: 8, celebrationSmile: 24, celebrationEye: 0.45 },
+      sleepy: { boredMs: 60000, sleepMs: 180000, idleMin: 15000, idleMax: 30000, waveChance: 0.08, motion: 0.4, peekChance: 0.15, peekCooldownMs: 12000, celebrationLift: 2, celebrationSmile: 10, celebrationEye: 0.8 },
     };
     function profile() { return profiles[personality]; }
     function setPersonality(value) {
       if (!Object.hasOwn(profiles, value)) return;
       personality = value;
       nextIdleAt = performance.now() + profile().idleMin;
+      nextPeekAt = performance.now() + 1800;
     }
     let forcedMood = null, eyeOpen = 1, sleepBlend = 0, boredomBlend = 0;
     let wakeStart = -1e9, yawnStart = -1e9, pawWaveStart = -1e9;
@@ -160,24 +169,37 @@ const TypingCat = (() => {
     // Personality changes mood thresholds, but never affects the break reminder timer.
     function attention() { lastAttention = Date.now(); forcedMood = null; setMood('normal'); }
     container.addEventListener('pointerdown', attention);
-    input.addEventListener('focus', attention);
+    let welcomeStart = -1e9;
+    function returnToSearch() {
+      // Only greet after inactivity, once per return, including an already-focused input.
+      const returning = mood === 'bored' || mood === 'sleepy' || Date.now() - lastAttention >= profile().boredMs;
+      attention();
+      if (returning) {
+        welcomeStart = performance.now();
+        wakeStart = -1e9; // The greeting replaces the usual wake stretch.
+        yawnStart = -1e9;
+        nextIdleAt = Math.max(nextIdleAt, welcomeStart + 2600);
+      }
+    }
+    input.addEventListener('focus', returnToSearch);
     // Search expressions share the existing frame loop; never alter paw state.
-    const LONG_QUERY_LENGTH = 24, PEEK_COOLDOWN_MS = 7000;
+    const LONG_QUERY_LENGTH = 24;
     let previousQuery = input.value || '', nextPeekAt = performance.now() + 1800;
     let searchReaction = null, searchReactionStart = -1e9;
     function startSearchReaction(name) {
+      welcomeStart = -1e9;
       attention();
       searchReaction = name;
       searchReactionStart = performance.now();
     }
     function queryChanged(event) {
-      attention();
+      returnToSearch();
       const query = input.value, now = performance.now();
       if (!event.isComposing && previousQuery.trim().length >= LONG_QUERY_LENGTH && !query.trim()) {
         startSearchReaction('surprise');
       } else if (query.length > previousQuery.length && query.trim() && now >= nextPeekAt) {
-        nextPeekAt = now + PEEK_COOLDOWN_MS;
-        if (Math.random() < 0.35 && (!searchReaction || now - searchReactionStart > 1100)) startSearchReaction('peek');
+        nextPeekAt = now + profile().peekCooldownMs;
+        if (Math.random() < profile().peekChance && (!searchReaction || now - searchReactionStart > 1100)) startSearchReaction('peek');
       }
       previousQuery = query;
     }
@@ -185,6 +207,20 @@ const TypingCat = (() => {
     function queryReset() { previousQuery = input.value || ''; }
     function searchCompleted() { queryReset(); startSearchReaction('celebrate'); }
     input.addEventListener('input', queryChanged);
+    let careKind = null, careStart = -1e9, happyUntil = -1e9, fullUntil = -1e9;
+    let careClicks = [], belly = 0, wasFull = false;
+    function giveCare(kind) {
+      if (!alive || dragging || !Object.hasOwn(careIcons, kind)) return false;
+      const now = performance.now();
+      if (now - careStart < 350) return false; // Ignore double clicks; never queue reactions.
+      attention(); welcomeStart = -1e9; wakeStart = -1e9; yawnStart = -1e9;
+      careKind = kind; careStart = now; happyUntil = now + 2200;
+      careClicks = careClicks.filter(t => now - t < 12000).slice(-4);
+      careClicks.push(now);
+      if (careClicks.length >= 5) fullUntil = now + 4500;
+      nextIdleAt = Math.max(nextIdleAt, happyUntil + 1200);
+      return true;
+    }
     let wasOverCat = false, teaseAt = -1e9, lastTease = -1e9;
     // A deliberate, sustained hover earns a playful paw reach.
     const HOVER_DWELL_MS = 2000, HOVER_REACH_COOLDOWN_MS = 14000;
@@ -279,6 +315,18 @@ const TypingCat = (() => {
       p.lift = lift;
     }
 
+    // A sustained run of typing quiets autonomous gestures through brief pauses.
+    // Keep this separate from paw timing and explicit search/pointer reactions.
+    const FOCUS_ENTRY_MS = 2500, FOCUS_PAUSE_MS = 3000;
+    let typingRunStart = -1e9, typingRunCount = 0, focusUntil = -1e9, wasFocused = false;
+    function noteTyping(now) {
+      if (now - lastKey > 1200) { typingRunStart = now; typingRunCount = 0; }
+      typingRunCount++;
+      if (now < focusUntil || (typingRunCount >= 6 && now - typingRunStart >= FOCUS_ENTRY_MS)) {
+        focusUntil = now + FOCUS_PAUSE_MS;
+      }
+    }
+
     function onKey(e) {
       if (
         e.isComposing ||
@@ -291,8 +339,9 @@ const TypingCat = (() => {
         e.key.startsWith("Arrow")
       )
         return;
-      attention();
+      returnToSearch();
       const now = performance.now();
+      if (!e.repeat) noteTyping(now);
       react("typing", now, 450);
       keys.push(now);
       while (keys.length && now - keys[0] > 1000) keys.shift();
@@ -335,8 +384,13 @@ const TypingCat = (() => {
       if (!alive) return;
       const idle = Date.now() - lastAttention;
       setMood(idle >= profile().sleepMs ? 'sleepy' : idle >= profile().boredMs ? 'bored' : 'normal');
+      const focused = now < focusUntil;
+      if (focused) idleGestureStart = -1e9;
+      // Give a finished typing session a gentle pause before resuming idle gestures.
+      if (wasFocused && !focused) nextIdleAt = Math.max(nextIdleAt, now + 1200);
+      wasFocused = focused;
       // Lightweight autonomous gestures. Never preempt typing, petting, or reaching.
-      if (now >= nextIdleAt) {
+      if (!focused && now >= nextIdleAt) {
         const cfg = profile();
         nextIdleAt = now + cfg.idleMin + Math.random() * (cfg.idleMax - cfg.idleMin);
         if (!reduce && !dragging && !pointer && mood === 'normal' && activeReaction(now) === 'idle') {
@@ -346,8 +400,26 @@ const TypingCat = (() => {
         }
       }
       const idleAge = now - idleGestureStart;
-      const idleAmount = !reduce && !pointer && mood === 'normal' && activeReaction(now) === 'idle' && idleAge >= 0 && idleAge < 1200
+      const idleAmount = !focused && !reduce && !pointer && mood === 'normal' && activeReaction(now) === 'idle' && idleAge >= 0 && idleAge < 1200
         ? Math.sin(Math.PI * idleAge / 1200) * profile().motion : 0;
+      const careAge = now - careStart;
+      const caring = !dragging && careAge >= 0 && careAge < 1400;
+      const full = now < fullUntil;
+      const careHappy = !dragging && (now < happyUntil || full);
+      if (full !== wasFull) {
+        wasFull = full;
+        container.dispatchEvent(new CustomEvent('cat-care-full', { detail: { full } }));
+      }
+      const itemFade = caring ? (reduce ? 1 : Math.min(1, careAge / 160, (1400 - careAge) / 220)) : 0;
+      el.water.setAttribute('opacity', careKind === 'water' ? itemFade.toFixed(3) : '0');
+      el.snack.setAttribute('opacity', careKind === 'snack' ? itemFade.toFixed(3) : '0');
+      belly += ((full ? 1 : 0) - belly) * Math.min(1, dt * (reduce ? 100 : 5));
+      const welcomeAge = now - welcomeStart;
+      const welcoming = welcomeAge >= 0 && welcomeAge < 1400 && !focused && !dragging && mood === 'normal' && activeReaction(now) !== 'petting';
+      const welcomeAmount = welcoming && !reduce ? Math.pow(Math.sin(Math.PI * welcomeAge / 1400), 2) : 0;
+      const welcomeLift = personality === 'calm' ? welcomeAmount * 3 : 0;
+      const welcomeTilt = personality === 'playful' ? welcomeAmount * 6 : 0;
+      const welcomeBlink = personality === 'sleepy' ? 1 - welcomeAmount * 0.9 : 1;
       const searchAge = now - searchReactionStart;
       if (searchAge >= 1100) searchReaction = null;
       const searchVisible = !dragging && mood === 'normal';
@@ -356,7 +428,7 @@ const TypingCat = (() => {
       const peek = searchVisible && searchReaction === 'peek' && !reduce
         ? Math.sin(Math.PI * clamp(searchAge / 1100, 0, 1)) : 0;
       const celebrationLift = celebrating && !reduce
-        ? Math.pow(Math.sin(Math.PI * clamp(searchAge / 1100, 0, 1)), 2) * 5 : 0;
+        ? Math.pow(Math.sin(Math.PI * clamp(searchAge / 1100, 0, 1)), 2) * profile().celebrationLift : 0;
       const currentReaction = activeReaction(now);
       const petting = currentReaction === "petting" && now < pettingUntil;
       const sleepy = mood === 'sleepy', bored = mood === 'bored';
@@ -368,7 +440,7 @@ const TypingCat = (() => {
       const yawning = yawnAge >= 0 && yawnAge < 1100 && !reduce;
       el.sleepEyes.setAttribute('opacity', Math.max(sleepBlend, petting ? 0.95 : 0).toFixed(3));
       // Rare delight after a successful pet, never while typing or during reduced motion.
-      if (!reduce && !petting && pettingStarted > 0 && now - pettingUntil > 0 &&
+      if (!focused && !reduce && !petting && pettingStarted > 0 && now - pettingUntil > 0 &&
           now - pettingUntil < 120 && now - lastDelight > 60000 && Math.random() < 0.2 &&
           react('delight', now, 900)) lastDelight = now;
       const delighted = activeReaction(now) === 'delight';
@@ -412,15 +484,18 @@ const TypingCat = (() => {
       smile += ((overCat ? 1 : 0) - smile) * follow;
       const mouthWidth = 15 + smile * 5;
       el.mouth.setAttribute("d", `M150 158 v5 M150 163 q${-7-smile*2} ${7+smile*5} ${-mouthWidth} ${2-smile*4} M150 163 q${7+smile*2} ${7+smile*5} ${mouthWidth} ${2-smile*4}`);
-      el.blush.setAttribute("opacity", Math.max(smile * 0.28, petting ? 0.65 : delighted ? 0.55 : 0).toFixed(3));
+      el.blush.setAttribute("opacity", Math.max(careHappy ? 0.6 : 0, smile * 0.28, petting ? 0.65 : delighted ? 0.55 : 0).toFixed(3));
+      if (welcoming) el.mouth.setAttribute('d', 'M138 164 Q150 175 162 164');
       if (delighted) el.mouth.setAttribute("d", "M132 163 Q150 185 168 163");
-      if (celebrating) el.mouth.setAttribute('d', 'M135 163 Q150 181 165 163');
+      if (celebrating) el.mouth.setAttribute('d', `M135 163 Q150 ${163 + profile().celebrationSmile} 165 163`);
       if (surprised) el.mouth.setAttribute('d', 'M145 165 a5 7 0 1 0 10 0 a5 7 0 1 0 -10 0');
       if (petting) el.mouth.setAttribute("d", "M135 165 Q150 181 165 165");
       if (yawning && !petting) {
         const open = Math.sin(Math.PI * yawnAge / 1100);
         el.mouth.setAttribute('d', `M142 167 Q150 ${167 + 20 * open} 158 167 Q150 ${164 - 5 * open} 142 167Z`);
       }
+      if (careHappy) el.mouth.setAttribute('d', 'M133 163 Q150 186 167 163');
+      if (caring) el.tongue.setAttribute('opacity', '0');
       const hunting = !petting && !sleepy && !bored && !dragging && near && now - lastKey > 700 && !reduce && reactionPriority[activeReaction(now)] <= 1;
       reach += ((hunting ? 1 : 0) - reach) * follow;
       if (dragging) reach = 0;
@@ -433,8 +508,8 @@ const TypingCat = (() => {
         k = reduce ? 0.3 : 1;
       const breathe = Math.sin(t * (sleepy ? 1.5 : 2.1)) * (sleepy ? 0.9 : 0.6);
       const by = (breathe - celebrationLift - bob * (2.2 + speed * 2.5) + (waking ? -5 * Math.sin(Math.PI * wakeAge / 950) : 0)) * k;
-      el.body.setAttribute("transform", `translate(0 ${by * 0.5})`);
-      el.head.setAttribute("transform", `translate(${hx} ${by + hy}) rotate(${gazeX * 3 * k + (sleepy ? 3 * sleepBlend : 0) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
+      el.body.setAttribute("transform", `translate(0 ${by * 0.5})${belly > 0.001 ? ` translate(150 280) scale(${1 + belly * 0.16} 1) translate(-150 -280)` : ''}`);
+      el.head.setAttribute("transform", `translate(${hx} ${by + hy - welcomeLift}) rotate(${welcomeTilt + gazeX * 3 * k + (sleepy ? 3 * sleepBlend : 0) + (waking ? 5 * Math.sin(Math.PI * wakeAge / 950) : 0) + (idleGesture === 'tilt' ? idleAmount * 5 : idleGesture === 'ear' ? idleAmount * -2 : 0)} 150 175)`);
 
 
       for (const [i, p] of paws.entries()) {
@@ -478,7 +553,7 @@ const TypingCat = (() => {
       }
       const bu = (now - blinkT0) / 140;
       const sy = bu >= 0 && bu <= 1 ? 1 - 0.9 * Math.sin(bu * Math.PI) : 1;
-      const eye = `translate(${gazeX * 3} ${128 + gazeY * 2}) scale(1 ${(Math.max(0.02, (1 - sleepBlend) * (1 - boredomBlend * 0.55) * (petting ? 0.03 : surprised ? 1.3 : celebrating ? 0.65 : 1) * (surprised ? 1 : sy))).toFixed(3)}) translate(0 -128)`;
+      const eye = `translate(${gazeX * 3} ${128 + gazeY * 2}) scale(1 ${(Math.max(0.02, (1 - sleepBlend) * (1 - boredomBlend * 0.55) * (careHappy ? 0.6 : petting ? 0.03 : surprised ? 1.3 : celebrating ? profile().celebrationEye : 1) * (surprised ? 1 : sy * welcomeBlink))).toFixed(3)}) translate(0 -128)`;
       el.eyeL.setAttribute("transform", eye);
       el.eyeR.setAttribute("transform", eye);
 
@@ -490,7 +565,7 @@ const TypingCat = (() => {
     window.addEventListener('cat-dev-mood', onDevMood);
     window.addEventListener('cat-dev-wave', onDevWave);
     return {
-      setMood: devMood, setPersonality, wave, searchCompleted, queryReset,
+      setMood: devMood, setPersonality, wave, searchCompleted, queryReset, giveCare,
       destroy() {
         alive = false;
         cancelAnimationFrame(frameId);
@@ -502,11 +577,11 @@ const TypingCat = (() => {
         window.removeEventListener('cat-dev-mood', onDevMood);
         window.removeEventListener('cat-dev-wave', onDevWave);
         input.removeEventListener("keydown", onKey);
-        input.removeEventListener("focus", attention);
+        input.removeEventListener("focus", returnToSearch);
         input.removeEventListener("input", queryChanged);
         container.removeEventListener("pointerdown", attention);
       },
     };
   }
-  return { mount };
+  return { mount, careIcons };
 })();
