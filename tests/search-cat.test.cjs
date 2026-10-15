@@ -328,3 +328,30 @@ test('cat name appears as plain text in care bubble and falls back when cleared'
   await vm.runInContext('updateCatName(" ")', f.context);
   assert.match(f.get('careBubble').textContent,/^Your cat is happy/);
 });
+
+function showDream(f) { settleNap(f); f.step(306000); f.step(306600); }
+test('dream appears only in settled sleep, fades away, and rotates icons without repeating',()=>{
+  const f=fixture(); f.step(500);assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),0);
+  showDream(f);assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),1);
+  assert.equal(f.elements['#tc-dream-fish'].attrs.opacity,'1');
+  f.step(309600);assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),0);
+  f.step(323000);f.step(323600);assert.equal(f.elements['#tc-dream-yarn'].attrs.opacity,'1');
+  assert.equal(f.elements['#tc-dream-fish'].attrs.opacity,'0');
+});
+test('waking, feeding, playing, dragging, and destroying hide dreams immediately',()=>{
+  for(const action of ['focus','care','yarn','drag','destroy']) {
+    const f=fixture();showDream(f);
+    if(action==='focus')f.input.dispatchEvent({type:'focus'});
+    if(action==='care')f.controller.giveCare('snack');
+    if(action==='yarn')f.controller.playYarn();
+    if(action==='drag')f.window.dispatchEvent({type:'cat-drag',detail:true});
+    if(action==='destroy')f.controller.destroy();
+    assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),0);
+    f.step(306650);assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),0);
+  }
+});
+test('reduced motion shows a static dream without floating or fading',()=>{
+  const f=fixture(true);showDream(f);
+  assert.equal(Number(f.elements['#tc-dream'].attrs.opacity),1);
+  assert.equal(f.elements['#tc-dream'].attrs.transform,'translate(0 0)');
+});

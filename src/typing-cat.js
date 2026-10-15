@@ -97,6 +97,20 @@ const TypingCat = (() => {
     <path d="M244 147 C237 138 226 149 244 165 C262 149 251 138 244 147Z"/>
   </g>
   <g id="tc-zzz" opacity="0" fill="#8774BD" font-family="system-ui,sans-serif" font-weight="bold"><text x="230" y="55" font-size="21">Z</text><text x="251" y="31" font-size="16">z</text><text x="267" y="12" font-size="12">z</text></g>
+  <g id="tc-dream" opacity="0" pointer-events="none" aria-hidden="true">
+    <g fill="#FFF5ED" stroke="#DABFD9" stroke-width="2">
+      <ellipse cx="-60" cy="48" rx="62" ry="43"/>
+      <circle cx="12" cy="88" r="8"/><circle cx="33" cy="105" r="4"/>
+    </g>
+    <g id="tc-dream-fish" opacity="0" transform="translate(-90 18)">
+      <path d="M17 31 3 19v24Z" fill="#DB9A58" stroke="#AC7544" stroke-width="2"/>
+      <path d="M15 31Q38 7 59 31Q38 55 15 31Z" fill="#F5BE70" stroke="#AC7544" stroke-width="2"/>
+      <circle cx="47" cy="27" r="2.5" fill="#513A36"/>
+      <path d="M34 22q-7 9 0 18" fill="none" stroke="#DB9A58" stroke-width="2"/>
+    </g>
+    <g id="tc-dream-yarn" opacity="0" transform="translate(-84 24) scale(.75)">${yarnArt}</g>
+    <path id="tc-dream-heart" opacity="0" d="M-60 34 C-88 8 -106 50 -60 71 C-14 50 -32 8 -60 34Z" fill="#EDA9BB" stroke="#CA849C" stroke-width="2"/>
+  </g>
   <!-- Flexible forelegs stay attached while the rounded paws reach. -->
   <path id="tc-armL" d="M80 247 Q72 279 78 302 Q100 318 122 302 Q126 276 120 247" fill="url(#tc-fur)" stroke="#C97A2E" stroke-opacity=".3" stroke-width="1.5"/>
   <g id="tc-pawL">
@@ -132,6 +146,7 @@ const TypingCat = (() => {
     container.innerHTML = SVG;
     const $ = (id) => container.querySelector("#" + id);
     const el = {
+      dream: $("tc-dream"), dreamIcons: [$("tc-dream-fish"), $("tc-dream-yarn"), $("tc-dream-heart")],
       body: $("tc-body"), yarn: $("tc-yarn"), water: $("tc-water"), snack: $("tc-snack"),
       head: $("tc-head"),
       armL: $("tc-armL"), armR: $("tc-armR"),
@@ -166,6 +181,7 @@ const TypingCat = (() => {
       if (target === mood) return;
       const previous = mood;
       mood = target;
+      if (mood !== 'sleepy') el.dream.setAttribute('opacity', '0');
       if (previous === 'sleepy' && mood !== 'sleepy') wakeStart = performance.now();
       if (mood === 'sleepy') yawnStart = performance.now();
       container.dispatchEvent(new CustomEvent('cat-mood-change', { detail: { mood } }));
@@ -315,7 +331,7 @@ const TypingCat = (() => {
       } else if (lastStrokeX === null) lastStrokeX = px;
     }
     let wasHoveringForWake = false;
-    function onDrag(e) { if (e.detail) stopYarn(); dragging = e.detail; if (dragging) reach = 0; }
+    function onDrag(e) { if (e.detail) { stopYarn(); el.dream.setAttribute('opacity', '0'); } dragging = e.detail; if (dragging) reach = 0; }
     window.addEventListener("cat-drag", onDrag);
     function clearPointer() { stopYarn(); pointer = null; wasHoveringForWake = false; resetPetStroke(); }
     window.addEventListener("pointermove", onPointer);
@@ -405,6 +421,7 @@ const TypingCat = (() => {
       );
     }
 
+    let dreamStart = -1e9, nextDreamAt = Infinity, wasNapping = false, dreamKind = -1;
     let prev = performance.now();
     function frame(now) {
       const dt = Math.min(0.05, (now - prev) / 1000);
@@ -488,6 +505,24 @@ const TypingCat = (() => {
       // Settle the head into the chest; paws retain their existing animation path.
       const napPose = reduce || dragging ? 0 : sleepBlend;
       const napping = sleepy && !yawning && !dragging;
+      // Dream only after settling into sleep, with long pauses between bubbles.
+      if (!napping) {
+        dreamStart = -1e9; nextDreamAt = Infinity;
+      } else if (!wasNapping) {
+        nextDreamAt = now + 4500;
+      } else if (now >= nextDreamAt) {
+        dreamStart = now;
+        nextDreamAt = now + 17000 + Math.random() * 12000;
+        const choices = [0, 1, 2].filter(kind => kind !== dreamKind);
+        dreamKind = choices[Math.floor(Math.random() * choices.length)];
+        el.dreamIcons.forEach((icon, i) => icon.setAttribute('opacity', i === dreamKind ? '1' : '0'));
+      }
+      wasNapping = napping;
+      const dreamAge = now - dreamStart;
+      const dreaming = napping && dreamAge >= 0 && dreamAge < 3600;
+      const dreamFade = dreaming ? (reduce ? 1 : Math.min(1, dreamAge / 550, (3600 - dreamAge) / 650)) : 0;
+      el.dream.setAttribute('opacity', dreamFade.toFixed(3));
+      el.dream.setAttribute('transform', `translate(0 ${dreaming && !reduce ? -3 * Math.sin(Math.PI * dreamAge / 3600) : 0})`);
       el.drool.setAttribute('opacity', napping ? (sleepBlend * 0.85).toFixed(3) : '0');
       el.sleepEyes.setAttribute('opacity', Math.max(sleepBlend, petting ? 0.95 : 0).toFixed(3));
       // Rare delight after a successful pet, never while typing or during reduced motion.
@@ -621,6 +656,7 @@ const TypingCat = (() => {
       setMood: devMood, setPersonality, wave, searchCompleted, queryReset, giveCare, playYarn,
       destroy() {
         stopYarn();
+        el.dream.setAttribute('opacity', '0');
         alive = false;
         cancelAnimationFrame(frameId);
         window.removeEventListener("cat-drag", onDrag);

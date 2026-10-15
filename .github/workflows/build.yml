@@ -5,9 +5,27 @@ on:
     tags: ['v*']
 permissions:
   contents: write
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare one draft release before any uploads
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GH_REPO" --verify-tag --draft --title "$RELEASE_TAG" --generate-notes
+          fi
   build:
+    needs: prepare-release
     strategy:
+      fail-fast: false
       max-parallel: 1
       matrix:
         os: [macos-latest, windows-latest]
@@ -17,6 +35,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
+      - name: Check application behavior
+        run: node --test
       - run: npx electron-builder --config electron-builder.config.js --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,3 +71,15 @@ jobs:
             dist/*.exe
             dist/*.yml
             dist/*.blockmap
+
+  publish-release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish after both platform builds succeed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release edit "$RELEASE_TAG" --repo "$GH_REPO" --draft=false
