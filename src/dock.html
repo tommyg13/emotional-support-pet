@@ -45,7 +45,7 @@
     .care-button:hover { background:#fff5e9; }
     .care-button:active { background:#ecd5c7; }
     .care-button:focus-visible { outline:3px solid #ff5c8acc; outline-offset:3px; }
-    #careBubble { position:absolute; left:32px; top:20px; width:236px; box-sizing:border-box; padding:12px 16px; border-radius:20px; background:#fff5e9; color:#705145; border:1px solid #eacbc0; box-shadow:0 4px 14px #583b3220; z-index:4; font-size:13px; line-height:1.4; pointer-events:none; }
+    #careBubble { position:absolute; left:32px; top:20px; width:236px; box-sizing:border-box; padding:12px 16px; border-radius:20px; background:#fff5e9; color:#705145; border:1px solid #eacbc0; box-shadow:0 4px 14px #583b3220; z-index:4; font-size:13px; line-height:1.4; overflow-wrap:anywhere; pointer-events:none; }
     #careBubble::after { content:""; position:absolute; right:-9px; bottom:14px; width:14px; height:14px; background:#fff5e9; border-right:1px solid #eacbc0; border-top:1px solid #eacbc0; transform:rotate(45deg); }
     #careBubble[hidden] { display:none; }
 
@@ -149,6 +149,7 @@
     <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
   </section>
   <script src="typing-cat.js"></script>
+  <script src="cat-name.js"></script>
   <script>
     const input = document.getElementById('q');
     const catController = TypingCat.mount(document.getElementById('cat'), input);
@@ -159,11 +160,16 @@
     }
     document.getElementById('playYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
     document.getElementById('playYarn').addEventListener('click', () => catController.playYarn());
+    function updateCatName(name) {
+      const label = CatName.normalize(name) || 'Your cat';
+      document.getElementById('careBubble').textContent = `${label} is happy—and full! Let’s paws for a moment. ♡`;
+    }
+    const stopCatName = api.onCatName?.(updateCatName);
     document.getElementById('cat').addEventListener('cat-care-full', e => {
       document.getElementById('careBubble').hidden = !e.detail.full;
     });
-    window.addEventListener('beforeunload', () => catController.destroy());
-    api.getSettings().then(s => catController.setPersonality(s.catPersonality || 'calm')).catch(() => {});
+    window.addEventListener('beforeunload', () => { catController.destroy(); stopCatName?.(); });
+    api.getSettings().then(s => { catController.setPersonality(s.catPersonality || 'calm'); updateCatName(s.catName); }).catch(() => {});
     api.onCatPersonality(value => catController.setPersonality(value));
     api.onDevCatAction((action, value) => window.dispatchEvent(new CustomEvent(action === 'mood' ? 'cat-dev-mood' : 'cat-dev-wave', { detail: value }))); 
 
@@ -203,6 +209,7 @@
     }
     async function refresh() {
       const s = await api.getSettings();
+      updateCatName(s.catName);
       const nextModel = s.aiModels?.[s.aiProvider] || '';
       if (provider && (provider !== s.aiProvider || activeModel !== nextModel)) reset();
       activeModel = nextModel;

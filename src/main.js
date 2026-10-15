@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, Menu, shell, globalShortcut, dialog
 const path = require('path');
 const fs = require('fs');
 const ai = require('./ai');
+const CatName = require('./cat-name');
 const { pathToFileURL } = require('url');
 
 let btnWin, overlayWin, settingsWin, dockWin, breakWin;
@@ -11,13 +12,15 @@ let safetyTimer = null;
 let dragStart = null;
 
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
-const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm' };
+const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '' };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
 function loadSettings() {
   try {
-    return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) };
+    const settings = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) };
+    settings.catName = CatName.normalize(settings.catName);
+    return settings;
   } catch {
     return { ...DEFAULTS };
   }
@@ -42,18 +45,24 @@ function tickBreakReminder() {
     showBreakReminder();
   }
 }
-function showBreakReminder() {
-  if (!dockWin || dockWin.isDestroyed() || (breakWin && !breakWin.isDestroyed())) return;
+function showBreakReminder(startStretch = false) {
+  if (breakWin && !breakWin.isDestroyed()) {
+    if (startStretch) breakWin.webContents.send('break-start-stretch');
+    breakWin.show();
+    return true;
+  }
+  if (!dockWin || dockWin.isDestroyed()) return false;
   const b = dockWin.getBounds(), display = screen.getDisplayMatching(b), wa = display.workArea;
-  const w = 360, h = 360;
+  const w = 360, h = 400;
   const x = Math.max(wa.x, Math.min(b.x + b.width - w, wa.x + wa.width - w));
   const y = Math.max(wa.y, Math.min(b.y - h + 65, wa.y + wa.height - h));
   breakWin = new BrowserWindow({ width:w, height:h, x:Math.round(x), y:Math.round(y), frame:false, transparent:true,
     hasShadow:false, resizable:false, skipTaskbar:true, alwaysOnTop:true, fullscreenable:false,
     webPreferences:{preload:path.join(__dirname,'preload.js')} });
   breakWin.setAlwaysOnTop(true, 'floating');
-  breakWin.loadFile(path.join(__dirname,'break-reminder.html'));
+  breakWin.loadFile(path.join(__dirname,'break-reminder.html'), { query: { stretch: startStretch ? '1' : '0' } });
   breakWin.on('closed', () => { breakWin = null; });
+  return true;
 }
 function closeBreakReminder(snooze = true) {
   if (snooze) snoozeUntil = Date.now() + 15 * 60 * 1000;
@@ -65,7 +74,7 @@ setInterval(tickBreakReminder, 1000).unref();
 ipcMain.handle('is-dev-mode', (event) => !!(DEV_MODE && settingsWin && event.sender === settingsWin.webContents));
 ipcMain.handle('dev-cat-action', (event, action, value) => {
   if (!DEV_MODE || !settingsWin || event.sender !== settingsWin.webContents) return false;
-  if (action === 'break') { showBreakReminder(); return true; }
+  if (action === 'break' || action === 'stretch') return showBreakReminder(action === 'stretch');
   if (!dockWin || dockWin.isDestroyed()) return false;
   if (action === 'mood' && ['normal','bored','sleepy','auto'].includes(value)) dockWin.webContents.send('cat-dev-mood', value);
   else if (action === 'wave') dockWin.webContents.send('cat-dev-wave');
@@ -331,7 +340,11 @@ ipcMain.handle('set-settings', (_e, patch) => {
   next.breakReminderEnabled = !!next.breakReminderEnabled;
   next.breakReminderMinutes = [30,45,60,90,120].includes(Number(next.breakReminderMinutes)) ? Number(next.breakReminderMinutes) : 60;
   next.catPersonality = ['calm', 'playful', 'sleepy'].includes(next.catPersonality) ? next.catPersonality : 'calm';
+  next.catName = CatName.normalize(next.catName);
   saveSettings(next);
+  if ('catName' in patch) {
+    for (const win of [dockWin, breakWin]) if (win && !win.isDestroyed()) win.webContents.send('cat-name', next.catName);
+  }
   if ('catPersonality' in patch && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('cat-personality', next.catPersonality);
   if (!next.breakReminderEnabled) closeBreakReminder(false);
   if ('searchDock' in patch) applySearchDock();

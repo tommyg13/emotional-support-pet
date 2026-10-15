@@ -76,6 +76,7 @@ async function dockFixture(aiEnabled=false, fail=false) {
     aiChat:async()=>{if(fail) throw Error('offline'); return {text:'ok',model:'test-model',usage:{}};}};
   const context=vm.createContext({api, document:{getElementById:get, createElement:()=>({scrollIntoView(){}})},
     window:{addEventListener(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
+  vm.runInContext(fs.readFileSync(path.join(sourceDir,'cat-name.js'),'utf8'), context);
   const html=fs.readFileSync(path.join(sourceDir,'dock.html'),'utf8');
   vm.runInContext([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1],context);
   await new Promise(resolve=>setImmediate(resolve));
@@ -318,4 +319,12 @@ test('yarn crosses the face with a clearly visible left-to-right head turn and g
   const eye=()=>Number(f.elements['#tc-eyeL'].attrs.transform.match(/translate\(([^ ]+)/)[1]);
   assert.ok(tilt() < -15); assert.ok(eye() < -5);
   f.step(1500); assert.ok(tilt() > 5); assert.ok(eye() > 2);
+});
+
+test('cat name appears as plain text in care bubble and falls back when cleared',async()=>{
+  const f=await dockFixture();
+  await vm.runInContext('updateCatName("<Mochi>")', f.context);
+  assert.equal(f.get('careBubble').textContent,'<Mochi> is happy—and full! Let’s paws for a moment. ♡');
+  await vm.runInContext('updateCatName(" ")', f.context);
+  assert.match(f.get('careBubble').textContent,/^Your cat is happy/);
 });

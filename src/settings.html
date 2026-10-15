@@ -63,6 +63,10 @@
 <label class="toggle"><input type="checkbox" id="dockToggle"> Show the search dock (cat with a search bar)</label>
 <p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the cat to move it.</p>
 
+<h2>Your cat’s name</h2>
+<div class="row"><label>Name <input id="catName" type="text" placeholder="Your cat" maxlength="48" autocomplete="off" aria-describedby="catNameHint"></label></div>
+<p id="catNameHint" class="hint">Up to 24 characters. Leave empty to use “Your cat”. Saved on this computer.</p>
+<p id="catNameStatus" class="hint" role="status"></p>
 <h2>Cat personality</h2>
 <p class="hint">Choose how lively your cat feels. All personalities work offline. Sleepy rests sooner; Playful is more expressive.</p>
 <div class="row"><label>Personality <select id="catPersonality"><option value="calm">Calm — gentle, subtle</option><option value="playful">Playful — curious and energetic</option><option value="sleepy">Sleepy — relaxed and drowsy</option></select></label></div>
@@ -74,11 +78,12 @@
 <section id="tab-dev" class="tab-panel" role="tabpanel" aria-labelledby="btn-dev" hidden>
 <h2>Developer tools</h2><p class="sub">Preview moods instantly without waiting for inactivity timers. These controls appear only in developer mode.</p>
 <div class="row"><button class="act alt" data-mood="normal">Curious</button><button class="act alt" data-mood="bored">Bored</button><button class="act alt" data-mood="sleepy">Sleepy 💤</button><button class="act alt" data-mood="auto">Automatic</button></div>
-<div class="row"><button class="act alt" id="devWave">Wave 👋</button><button class="act alt" id="devBreak">Show break reminder</button></div>
+<div class="row"><button class="act alt" id="devWave">Wave 👋</button><button class="act alt" id="devBreak">Show break reminder</button><button class="act alt" id="devStretch">Test 20-second stretch</button></div>
 <p id="devStatus" class="hint" role="status"></p>
 </section>
 <script src="../node_modules/lottie-web/build/player/lottie.min.js"></script>
 <script src="characters.js"></script>
+<script src="cat-name.js"></script>
 <script>
 (async () => {
   const settings = await api.getSettings();
@@ -96,6 +101,10 @@
     document.querySelectorAll('[data-mood]').forEach(btn => btn.onclick = () => api.devCatAction('mood', btn.dataset.mood));
     document.getElementById('devWave').onclick = () => api.devCatAction('wave');
     document.getElementById('devBreak').onclick = () => api.devCatAction('break');
+    document.getElementById('devStretch').onclick = async () => {
+      const opened = await api.devCatAction('stretch');
+      document.getElementById('devStatus').textContent = opened ? 'Stretch test opened. Close or snooze it at any time.' : 'Enable the search dock first, then try again.';
+    };
   }
 
   const provider = document.getElementById('aiProvider'), key = document.getElementById('aiKey'), aiStatus = document.getElementById('aiStatus'), modelSelect = document.getElementById('aiModel');
@@ -186,6 +195,17 @@
   dur.oninput = () => { lab.textContent = dur.value; };
   dur.onchange = () => api.setSettings({ duration: Number(dur.value) });
 
+  const catName = document.getElementById('catName');
+  catName.value = CatName.normalize(settings.catName);
+  catName.onchange = async () => {
+    const status = document.getElementById('catNameStatus');
+    try {
+      const saved = await api.setSettings({ catName: CatName.normalize(catName.value) });
+      catName.value = saved.catName;
+      status.textContent = saved.catName ? `Saved. Say hello to ${saved.catName}!` : 'Saved. Using “Your cat”.';
+    } catch { status.textContent = 'Could not save the name. Please try again.'; }
+  };
+  catName.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); catName.blur(); } });
   const catPersonality = document.getElementById('catPersonality');
   catPersonality.value = settings.catPersonality || 'calm';
   catPersonality.onchange = () => api.setSettings({ catPersonality: catPersonality.value });

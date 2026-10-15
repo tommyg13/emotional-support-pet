@@ -3,6 +3,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   isDevMode: () => ipcRenderer.invoke('is-dev-mode'),
   devCatAction: (action, value) => ipcRenderer.invoke('dev-cat-action', action, value),
+  onStartStretch: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on('break-start-stretch', listener);
+    return () => ipcRenderer.removeListener('break-start-stretch', listener);
+  },
   dismissBreak: (snooze = true) => ipcRenderer.send('break-dismiss', snooze),
   summon: (id) => ipcRenderer.send('summon', id),
   dragStart: () => ipcRenderer.send('drag-start'),
@@ -23,6 +28,11 @@ contextBridge.exposeInMainWorld('api', {
   dockDragStart: () => ipcRenderer.send('dock-drag-start'),
   dockDragMove: (dx, dy) => ipcRenderer.send('dock-drag-move', { dx, dy }),
   dockDragEnd: () => ipcRenderer.send('dock-drag-end'),
+  onCatName: (cb) => {
+    const listener = (_event, name) => cb(name);
+    ipcRenderer.on('cat-name', listener);
+    return () => ipcRenderer.removeListener('cat-name', listener);
+  },
   onCatPersonality: (cb) => {
     const listener = (_event, value) => cb(value);
     ipcRenderer.on('cat-personality', listener);
