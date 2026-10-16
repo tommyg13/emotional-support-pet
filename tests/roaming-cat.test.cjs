@@ -1,9 +1,9 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const {EventEmitter}=require('node:events');const install=require('../src/roaming-cat');
-function fixture(fail=false){
+function fixture(fail=false,personality='calm'){
  const handlers={},events=[],windows=[];let click,stopped=false;let cursor={x:0,y:0};
  class Win extends EventEmitter{constructor(bounds){super();this.bounds=bounds;this.dead=false;this.webContents=new EventEmitter();this.webContents.isDestroyed=()=>false;this.webContents.send=(...v)=>events.push(v);windows.push(this);}getBounds(){return this.bounds;}isDestroyed(){return this.dead;}setAlwaysOnTop(){}setVisibleOnAllWorkspaces(){}setIgnoreMouseEvents(v){this.ignored=v;}showInactive(){}async loadFile(){if(fail)throw Error('load failed');}close(){if(!this.dead){this.dead=true;this.emit('closed');}}}
  const dock=new Win({x:100,y:300,width:560,height:270});const app=new EventEmitter();app.whenReady=async()=>{};const screen=new EventEmitter();screen.getDisplayMatching=()=>({workArea:{x:0,y:0,width:1200,height:800}});screen.getCursorScreenPoint=()=>cursor;
- install({app,screen,BrowserWindow:Win,ipcMain:{handle:(n,f)=>handlers[n]=f,on:(n,f)=>handlers[n]=f},getDockWindow:()=>dock,preload:'preload.js',page:'roaming-cat.html',startClicks:cb=>{click=cb;return {enabled:true,stop(){stopped=true;}};}});
+ install({app,screen,BrowserWindow:Win,ipcMain:{handle:(n,f)=>handlers[n]=f,on:(n,f)=>handlers[n]=f},getDockWindow:()=>dock,preload:'preload.js',page:'roaming-cat.html',getPersonality:()=>personality,startClicks:cb=>{click=cb;return {enabled:true,stop(){stopped=true;}};}});
  return {click:p=>click(p),stopped:()=>stopped,handlers,dock,events,windows,cursor:p=>cursor=p,event:()=>({sender:windows.at(-1).webContents})};
 }
 test('release is authorized, unique, and restores dock when clicked home',async()=>{
@@ -41,4 +41,18 @@ test('dock commands release cat when needed, toggle speed, and reject unauthoriz
  assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'speed')).fast,true);
  assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'speed')).fast,false);
  f.dock.close();
+});
+
+test('typing attracts roamer with personality, scales dock coordinates, and is throttled',async()=>{
+ const f=fixture(false,'playful');await f.handlers['cat-release']({sender:f.dock.webContents});
+ const count=f.events.length;f.handlers['cat-search-typing']({sender:{}});assert.equal(f.events.length,count);
+ f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.deepEqual(f.events.at(-1),['cat-roam-curious',{x:535,y:480,lookX:320,lookY:530,personality:'playful'}]);
+ const after=f.events.length;f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.equal(f.events.length,after);
+ f.dock.close();
+});
+test('typing does not override scruff dragging or a home request',async()=>{
+ const f=fixture();await f.handlers['cat-release']({sender:f.dock.webContents});f.handlers['cat-roam-held'](f.event(),true);
+ const count=f.events.length;f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.equal(f.events.length,count);
+ f.handlers['cat-roam-held'](f.event(),false);f.handlers['cat-home'](f.event());const returning=f.events.length;
+ f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.equal(f.events.length,returning);f.dock.close();
 });

@@ -65,6 +65,7 @@ const WalkingCat = (() => {
 
     const S = { x: o.x, y: o.y, f: 1, dir: 1, phase: 0, walk: 0, run: 0, sit: 0, sleep: 0, idle: 0,
                 jump: -1, t: 0, blinkAt: 2, blinkT: -1, ex: 0, ey: 0, target: null, resolve: null };
+    let watchPoint=null,watchUntil=-1;
     let pointer = null, raf = 0, last = performance.now();
 
     const bounds = () => o.desktop ? {minY:Math.min(160,innerHeight*.4),maxY:innerHeight-16,minX:100,maxX:Math.max(100,innerWidth-100)} : ({ minY: innerHeight * 0.28, maxY: innerHeight - o.margin, minX: o.margin, maxX: innerWidth - o.margin });
@@ -81,11 +82,12 @@ const WalkingCat = (() => {
     const jump = () => { if (S.jump < 0) S.jump = 0; S.idle = 0; };
     const setPosition = (x, y) => { finish(false); const b=bounds();S.x=clamp(x,b.minX,b.maxX);S.y=clamp(y,b.minY,b.maxY); };
     let grab=null,held=false,angle=0,angularVelocity=0,lastDragX=0,landing=-1,hang=0;
+    const dragReactions=typeof DragReactions==='undefined'?null:DragReactions.create({now:()=>performance.now(),onReaction:phase=>o.onDragReaction?.(phase)});
     function release(e,cancelled=false) {
       if(!grab||e&&e.pointerId!==grab.id)return;
       const wasHeld=held,id=grab.id;grab=null;held=false;o.onHeld?.(false);
       if(svg.hasPointerCapture(id))svg.releasePointerCapture(id);
-      if(wasHeld){const b=bounds();S.x=clamp(S.x,b.minX,b.maxX);S.y=clamp(S.y,b.minY,b.maxY);landing=0;S.idle=0;}
+      if(wasHeld){dragReactions?.end(cancelled);const b=bounds();S.x=clamp(S.x,b.minX,b.maxX);S.y=clamp(S.y,b.minY,b.maxY);landing=0;S.idle=0;}
       else if(!cancelled){if(o.onClick)o.onClick();else{jump();host.dispatchEvent(new CustomEvent('cat-click',{bubbles:true}));}}
     }
     svg.addEventListener('pointerdown',e=>{
@@ -95,8 +97,9 @@ const WalkingCat = (() => {
     });
     const dragMove=e=>{
       if(!grab||grab.id!==e.pointerId)return;
-      if(!held&&Math.hypot(e.clientX-grab.x,e.clientY-grab.y)>6){held=true;S.f=S.dir;S.jump=-1;S.idle=0;S.sit=0;S.sleep=0;}
+      if(!held&&Math.hypot(e.clientX-grab.x,e.clientY-grab.y)>6){held=true;dragReactions?.begin(e.clientX,e.clientY);S.f=S.dir;S.jump=-1;S.idle=0;S.sit=0;S.sleep=0;}
       if(!held)return;
+      dragReactions?.move(e.clientX,e.clientY);
       const sc=depth(S.y);angularVelocity+=clamp((e.clientX-lastDragX)*1.4,-120,120);lastDragX=e.clientX;
       S.x=e.clientX-(210-FX)*S.f*sc;S.y=e.clientY-(130-FY)*sc;
     };
@@ -127,6 +130,7 @@ const WalkingCat = (() => {
         }
       } else if (!grab && S.jump < 0) { S.idle += dt; S.run = lerp(S.run, 0, dt * 4); }
 
+      if(watchPoint&&S.t<watchUntil&&!S.target&&!grab)S.idle=0;
       S.f += clamp(S.dir - S.f, -dt * 7, dt * 7);
       S.walk = lerp(S.walk, moving ? 1 : 0, dt * 8);
       if (moving) S.phase += dt * (sp / s) / 21;
@@ -151,14 +155,16 @@ const WalkingCat = (() => {
 
       // head: bobs with the stride, looks toward the pointer, naps when idle for long
       const hx = S.x + S.dir * 90 * s, hy = S.y - 125 * s;
-      const tx = pointer ? clamp((pointer.x - hx) * S.dir / 260, -1, 1) * 5 : 0, ty = pointer ? clamp((pointer.y - hy) / 260, -1, 1) * 4 : 0;
+      const watching=watchPoint&&S.t<watchUntil;
+      const gaze=watching?watchPoint:pointer;
+      const tx = gaze ? clamp((gaze.x - hx) * S.dir / 260, -1, 1) * 5 : 0, ty = gaze ? clamp((gaze.y - hy) / 260, -1, 1) * 4 : 0;
       S.ex = lerp(S.ex, moving ? 3 : tx, dt * 8); S.ey = lerp(S.ey, moving ? 0 : ty, dt * 8);
       if (S.blinkT < 0 && S.t > S.blinkAt) S.blinkT = 0;
       let bl = 1; if (S.blinkT >= 0) { S.blinkT += dt / 0.15; bl = 1 - Math.sin(Math.PI * Math.min(1, S.blinkT)); if (S.blinkT >= 1) { S.blinkT = -1; S.blinkAt = S.t + 2 + Math.random() * 3; } }
       const eyeS = Math.max(0.08, bl * (1 - S.sleep));
       E.eyes.setAttribute('transform', `translate(${S.ex} ${S.ey + 128 * (1 - eyeS)}) scale(1 ${eyeS})`);
       E.blush.setAttribute('opacity', Math.max(glow, S.sleep * 0.6));
-      const hr = Math.sin(p + 1) * 2.5 * w + S.sleep * 10 - sit * 4 + tuck * -6;
+      const hr = (watching?clamp((gaze.y-hy)/180,-1,1)*12:0) + Math.sin(p + 1) * 2.5 * w + S.sleep * 10 - sit * 4 + tuck * -6;
       E.head.setAttribute('transform', `translate(232 ${102 + bob * 1.4 + S.sleep * 6}) rotate(${hr}) scale(.62) translate(-150 -132)`);
 
       angularVelocity += (-angle*18-angularVelocity*5)*dt;angle+=angularVelocity*dt;angle=clamp(angle,-24,24);
@@ -176,8 +182,8 @@ const WalkingCat = (() => {
     }
     raf = requestAnimationFrame(frame);
 
-    return { walkTo, stop, sit, jump, setSpeed:multiplier=>{o.speed=150*clamp(multiplier,.5,2.5);}, setPosition, isHeld:()=>!!grab, drop:()=>release(null,true), getPose:()=>held?'held':S.sleep>.5?'sleeping':S.sit>.5?'sitting':S.target?'walking':'idle', getPosition: () => ({ x: S.x, y: S.y }), element: host,
-             destroy() { grab=null;held=false;o.onHeld?.(false);cancelAnimationFrame(raf);removeEventListener('pointermove',dragMove);removeEventListener('blur',blur); removeEventListener('pointermove', onMove); finish(false); host.remove(); } };
+    return { watchAt:(point,seconds=12)=>{watchPoint=point;watchUntil=point?S.t+seconds:-1;if(point)S.idle=0;}, walkTo, stop, sit, jump, setSpeed:multiplier=>{o.speed=150*clamp(multiplier,.5,2.5);}, setPosition, isHeld:()=>!!grab, drop:()=>release(null,true), getPose:()=>held?'held':S.sleep>.5?'sleeping':S.sit>.5?'sitting':S.target?'walking':'idle', getPosition: () => ({ x: S.x, y: S.y }), element: host,
+             destroy() { dragReactions?.end(true);grab=null;held=false;o.onHeld?.(false);cancelAnimationFrame(raf);removeEventListener('pointermove',dragMove);removeEventListener('blur',blur); removeEventListener('pointermove', onMove); finish(false); host.remove(); } };
   }
   return { mount };
 })();

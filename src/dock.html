@@ -226,6 +226,7 @@
       document.getElementById('careBubble').hidden=true;
       document.getElementById('yarnBubble').hidden=true;
     });
+    input.addEventListener('input',e=>{if(catRoaming&&!e.isComposing&&input.value.trim()&&!input.value.trim().startsWith('/'))api.searchTyping();});
     input.title = 'Type /walk to release your cat, or /home to bring it back';
     window.addEventListener('beforeunload',()=>stopRoaming?.());
     const catController = TypingCat.mount(document.getElementById('cat'), input);

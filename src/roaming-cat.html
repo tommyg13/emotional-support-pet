@@ -1,8 +1,11 @@
 <!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;user-select:none}#chaseYarn{position:fixed;width:34px;height:34px;pointer-events:none;transform:translate(-50%,-50%);z-index:99999;filter:drop-shadow(0 3px 4px #654a4a33)}#chaseYarn[hidden]{display:none}#tip{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#fff4e7e8;color:#654a4a;padding:9px 15px;border-radius:18px;font:13px system-ui;pointer-events:none;transition:opacity .5s} @media(prefers-reduced-motion:reduce){#chaseYarn{position:fixed;width:34px;height:34px;pointer-events:none;transform:translate(-50%,-50%);z-index:99999;filter:drop-shadow(0 3px 4px #654a4a33)}#chaseYarn[hidden]{display:none}#tip{transition:none}}
-</style></head><body><div id="tip">Click me to go home · drag to pick me up by the scruff</div><div id="chaseYarn" hidden aria-hidden="true"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="#C6A0D8" stroke="#886399" stroke-width="3"/><g fill="none" stroke="#F1DFF5" stroke-width="3"><path d="M13 17q20 4 35 27M9 29q18 1 30 25M24 9q20 9 30 26M17 49q5-21 28-35M27 54q4-20 27-30"/></g></svg></div><script src="walking-cat.js"></script><script>
+#curiousBubble{position:fixed;z-index:100000;max-width:220px;box-sizing:border-box;padding:11px 15px;border-radius:20px;background:#fff5e9;color:#705145;border:1px solid #eacbc0;box-shadow:0 4px 14px #583b3220;font:13px/1.4 system-ui;pointer-events:none}#curiousBubble[hidden]{display:none}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;user-select:none}#chaseYarn{position:fixed;width:34px;height:34px;pointer-events:none;transform:translate(-50%,-50%);z-index:99999;filter:drop-shadow(0 3px 4px #654a4a33)}#chaseYarn[hidden]{display:none}#tip{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#fff4e7e8;color:#654a4a;padding:9px 15px;border-radius:18px;font:13px system-ui;pointer-events:none;transition:opacity .5s} @media(prefers-reduced-motion:reduce){#chaseYarn{position:fixed;width:34px;height:34px;pointer-events:none;transform:translate(-50%,-50%);z-index:99999;filter:drop-shadow(0 3px 4px #654a4a33)}#chaseYarn[hidden]{display:none}#tip{transition:none}}
+</style></head><body><div id="curiousBubble" role="status" aria-live="polite" hidden></div><div id="tip">Click me to go home · drag to pick me up by the scruff</div><div id="chaseYarn" hidden aria-hidden="true"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="24" fill="#C6A0D8" stroke="#886399" stroke-width="3"/><g fill="none" stroke="#F1DFF5" stroke-width="3"><path d="M13 17q20 4 35 27M9 29q18 1 30 25M24 9q20 9 30 26M17 49q5-21 28-35M27 54q4-20 27-30"/></g></svg></div><script src="drag-reactions.js"></script><script src="walking-cat.js"></script><script>
 const params=new URLSearchParams(location.search),reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let alive=true,returning=false,chaseId=0;
+let curiousUntil=0,bubbleUntil=0;
+const curiousBubble=document.getElementById('curiousBubble');
+function stopCurious(){curiousUntil=0;bubbleUntil=0;curiousBubble.hidden=true;cat.watchAt(null);}
 const yarn=document.getElementById('chaseYarn');
 function stopChase(){chaseId++;yarn.hidden=true;yarn.getAnimations().forEach(animation=>animation.cancel());}
 async function chaseYarn(){
@@ -18,10 +21,23 @@ async function chaseYarn(){
  }
  if(id===chaseId)yarn.hidden=true;
 }
-const cat=WalkingCat.mount(document.body,{x:Number(params.get('x'))||innerWidth/2,y:Number(params.get('y'))||innerHeight*.7,scale:.72,minDepth:.8,desktop:true,reducedMotion:reduce,onClick:()=>api.returnCat(),onHeld:held=>{api.roamHeld(held);if(held)stopChase();}});
-const stopTarget=api.onRoamTarget(point=>{if(alive&&!returning&&!cat.isHeld()){clearTimeout(firstWalk);stopChase();cat.walkTo(point.x,point.y);}});
+let dragPersonality='calm';
+api.getSettings().then(s=>{dragPersonality=s.catPersonality||'calm';}).catch(()=>{});
+const stopDragPersonality=api.onCatPersonality(value=>{dragPersonality=value;});
+const dragLines={
+ calm:{pickup:'Oh, we’re going somewhere?',slow:'A lovely view from up here.',fast:'Easy there, precious cargo.',landing:'This looks like a cozy spot.'},
+ playful:{pickup:'Adventure delivery!',slow:'Human-powered transport. Fancy!',fast:'Wheee! Again, again!',landing:'Perfect landing. Ten out of ten!'},
+ sleepy:{pickup:'Was my nap in the way?',slow:'Wake me when we arrive.',fast:'My dreams don’t usually have turbulence.',landing:'Yes… this will do. Zzz.'}
+};
+function showDragReaction(phase){
+ if(!alive||returning)return;
+ stopCurious();const lines=dragLines[dragPersonality]||dragLines.calm;
+ curiousBubble.textContent=lines[phase];curiousBubble.hidden=false;bubbleUntil=performance.now()+3500;
+}
+const cat=WalkingCat.mount(document.body,{x:Number(params.get('x'))||innerWidth/2,y:Number(params.get('y'))||innerHeight*.7,scale:.72,minDepth:.8,desktop:true,reducedMotion:reduce,onDragReaction:showDragReaction,onClick:()=>api.returnCat(),onHeld:held=>{api.roamHeld(held);if(held){stopChase();stopCurious();}}});
+const stopTarget=api.onRoamTarget(point=>{if(alive&&!returning&&!cat.isHeld()){clearTimeout(firstWalk);stopChase();stopCurious();cat.walkTo(point.x,point.y);}});
 const stopHome=api.onRoamHome(async point=>{
- if(returning||!alive)return;clearTimeout(firstWalk);stopChase();returning=true;cat.drop();
+ if(returning||!alive)return;clearTimeout(firstWalk);stopChase();stopCurious();returning=true;cat.drop();
  document.getElementById('tip').textContent='Coming home!';document.getElementById('tip').style.opacity='1';
  const arrived=await cat.walkTo(point.x,point.y,{run:true,home:true});
  if(!alive)return;
@@ -30,19 +46,38 @@ const stopHome=api.onRoamHome(async point=>{
 const stopCommand=api.onRoamCommand(({command,fast})=>{
  if(!alive||returning||cat.isHeld())return;clearTimeout(firstWalk);
  if(command==='speed'){cat.setSpeed(fast?1.8:1);return;}
- stopChase();cat.stop();
+ stopChase();stopCurious();cat.stop();
  if(command==='jump')cat.jump();
  if(command==='sit')cat.sit();
  if(command==='yarn')chaseYarn();
+});
+const curiosityLines={
+ calm:['What are you working on? I’ll keep you company.','Need a little help—or a little company?','Something interesting? I’m all ears.'],
+ playful:['Ooh, what are we doing?','Need help? I’m excellent at pressing buttons!','Is that a secret mission? Count me in!'],
+ sleepy:['What are you doing… is it nap-related?','Need help? I can supervise sleepily.','I woke up just to see what you’re typing.']
+};
+let lastCuriousLine='';
+const stopCuriousListener=api.onRoamCurious(point=>{
+ if(!alive||returning||cat.isHeld())return;
+ clearTimeout(firstWalk);stopChase();stopCurious();
+ const choices=(curiosityLines[point.personality]||curiosityLines.calm).filter(line=>line!==lastCuriousLine);
+ const line=choices[Math.floor(Math.random()*choices.length)];lastCuriousLine=line;
+ curiousUntil=performance.now()+12000;bubbleUntil=performance.now()+5000;
+ curiousBubble.textContent=line;curiousBubble.hidden=false;
+ cat.watchAt({x:point.lookX,y:point.lookY},12);
+ cat.walkTo(point.x,point.y,{home:true});
 });
 const stopClicks=api.onRoamClicks(enabled=>{if(!enabled){document.getElementById('tip').textContent='Click me or the Home button to return · drag to move me · enable Accessibility for desktop-click navigation';}});
 const timer=setInterval(()=>{
  if(!alive)return;
  const r=cat.element.querySelector('svg').getBoundingClientRect();
+ if(performance.now()>=bubbleUntil)curiousBubble.hidden=true;
+ if(!curiousBubble.hidden){curiousBubble.style.left=Math.max(8,Math.min(r.left,innerWidth-228))+'px';curiousBubble.style.top=Math.max(8,r.top-75)+'px';}
+ if(curiousUntil&&performance.now()>=curiousUntil)stopCurious();
  api.roamHit({x:r.left,y:r.top,width:r.width,height:r.height});
 },100);
 // One short exploration, then the existing idle timer naturally sits and sleeps.
 const firstWalk=setTimeout(()=>{if(alive&&!returning&&!cat.isHeld()&&!reduce)cat.walkTo(110+Math.random()*Math.max(1,innerWidth-220),160+Math.random()*Math.max(1,innerHeight-190));},2200);
 const tipTimer=setTimeout(()=>document.getElementById('tip').style.opacity='0',7000);
-window.addEventListener('beforeunload',()=>{alive=false;stopChase();clearInterval(timer);clearTimeout(firstWalk);clearTimeout(tipTimer);stopTarget();stopHome();stopClicks();stopCommand();cat.destroy();});
+window.addEventListener('beforeunload',()=>{alive=false;stopChase();stopCurious();clearInterval(timer);clearTimeout(firstWalk);clearTimeout(tipTimer);stopTarget();stopHome();stopClicks();stopCommand();stopCuriousListener();stopDragPersonality();cat.destroy();});
 </script></body></html>

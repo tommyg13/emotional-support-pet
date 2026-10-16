@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('api', {
   openSettings: () => ipcRenderer.send('open-settings'),
   releaseCat: () => ipcRenderer.invoke('cat-release'),
   returnCat: () => ipcRenderer.invoke('cat-home'),
+  searchTyping:()=>ipcRenderer.send('cat-search-typing'),
+  onRoamCurious:cb=>{const fn=(_e,value)=>cb(value);ipcRenderer.on('cat-roam-curious',fn);return()=>ipcRenderer.removeListener('cat-roam-curious',fn);},
   roamCommand: command => ipcRenderer.invoke('cat-roam-command',command),
   onRoamCommand: cb => {const fn=(_e,value)=>cb(value);ipcRenderer.on('cat-roam-command',fn);return()=>ipcRenderer.removeListener('cat-roam-command',fn);},
   roamHomeArrived: () => ipcRenderer.send('cat-home-arrived'),
