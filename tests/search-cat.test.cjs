@@ -68,19 +68,19 @@ test('dock inline script syntax is valid and completion is wired to both search 
   assert.match(script, /!e.isComposing && !e.repeat/);
 });
 async function dockFixture(aiEnabled=false, fail=false) {
-  const elements={}; let completed=0, resets=0, submitted=[];
-  const get=id => elements[id] ||= {value:'', dataset:{}, hidden:true, listeners:{}, insertAdjacentHTML(){}, setAttribute(){}, appendChild(){}, scrollIntoView(){}, replaceChildren(){}, focus(){}, addEventListener(n,f){this.listeners[n]=f;}};
+  const elements={}; let completed=0, resets=0, submitted=[],roamCallback;
+  const get=id => elements[id] ||= {value:'', dataset:{}, hidden:true, listeners:{}, classList:{toggle(){}}, insertAdjacentHTML(){}, setAttribute(){}, appendChild(){}, scrollIntoView(){}, replaceChildren(){}, focus(){}, addEventListener(n,f){this.listeners[n]=f;}};
   const settings={aiEnabled, aiProvider:'openai', aiModels:{openai:'test-model'}};
-  const api={getSettings:async()=>settings, onCatPersonality(){}, onDevCatAction(){}, onFocusInput(){},
-    aiPanel:async()=>{}, aiStatus:async()=>({configured:true}), searchSubmit:q=>submitted.push(q),
+  const api={roamCommand:async command=>{submitted.push(command);return {ok:true,fast:command==='speed'};},onCatRoaming:cb=>{roamCallback=cb;return()=>{};},getSettings:async()=>settings, onCatPersonality(){}, onDevCatAction(){}, onFocusInput(){},
+    releaseCat:async()=>{submitted.push('walk');return true;},returnCat:async()=>{submitted.push('home');return true;},aiPanel:async()=>{}, aiStatus:async()=>({configured:true}), searchSubmit:q=>submitted.push(q),
     aiChat:async()=>{if(fail) throw Error('offline'); return {text:'ok',model:'test-model',usage:{}};}};
   const context=vm.createContext({api, document:{getElementById:get, createElement:()=>({scrollIntoView(){}})},
-    window:{addEventListener(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
+    window:{addEventListener(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({cancelManualCare(){},playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
   vm.runInContext(fs.readFileSync(path.join(sourceDir,'cat-name.js'),'utf8'), context);
   const html=fs.readFileSync(path.join(sourceDir,'dock.html'),'utf8');
   vm.runInContext([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1],context);
   await new Promise(resolve=>setImmediate(resolve));
-  return {get, context, completed:()=>completed, resets:()=>resets, submitted};
+  return {roaming:v=>roamCallback(v),get, context, completed:()=>completed, resets:()=>resets, submitted};
 }
 test('dock celebrates browser handoff and AI success, never empty input or failed AI',async()=>{
   for(const [ai,fail] of [[false,false],[true,false],[true,true]]) {
@@ -227,9 +227,9 @@ test('care honors dragging and reduced motion; old treats do not accumulate', ()
   assert.ok(!f.elements['#tc-body'].attrs.transform.includes('scale'));
   f.step(53500); assert.equal(Number(f.elements['#tc-water'].attrs.opacity),0);
 });
-test('dock care buttons call the controller without submitting a search',async()=>{
-  const f=await dockFixture(); f.get('giveWater').listeners.click(); f.get('giveSnack').listeners.click();
-  assert.deepEqual(f.submitted,['water','snack']); assert.equal(f.completed(),0);
+test('dock command buttons control the roaming cat without submitting a search',async()=>{
+ const f=await dockFixture();f.roaming(true);for(const id of ['catJump','catSpeed','catSit','chaseYarn'])await f.get(id).listeners.click();
+ assert.deepEqual(f.submitted,['jump','speed','sit','yarn']);assert.equal(f.completed(),0);
 });
 
 function settleNap(f, start=300000) {
@@ -429,4 +429,24 @@ test('ordinary clicks and cancelled carries never emit manual-feeding bubbles',(
  f.controller.giveCare('snack');f.step(1600);assert.equal(count,0);
  f.controller.beginManualCare('water');f.controller.updateManualCare(20,100);f.controller.cancelManualCare();f.step(4000);assert.equal(count,0);
  assert.equal(f.controller.updateManualCare(150,200),false);
+});
+
+test('walk and home commands stay local even with AI enabled',async()=>{
+ const f=await dockFixture(true);f.get('q').value='/walk';await vm.runInContext('submit()',f.context);assert.equal(f.get('q').value,'');
+ f.get('q').value='/HOME';await vm.runInContext('submit()',f.context);assert.deepEqual(f.submitted,['walk','home']);assert.equal(f.completed(),0);
+});
+
+test('walk toggle changes to home and requests the matching action',async()=>{
+ const f=await dockFixture();assert.equal(f.get('walkToggle').title,'Let the cat walk');
+ await f.get('walkToggle').onclick();f.roaming(true);assert.equal(f.get('walkToggle').title,'Bring the cat home');
+ await f.get('walkToggle').onclick();assert.deepEqual(f.submitted,['walk','home']);f.roaming(false);assert.equal(f.get('walkToggle').title,'Let the cat walk');
+});
+
+test('care buttons and manual feeding return when docked, commands only work while roaming',async()=>{
+ const f=await dockFixture();assert.equal(f.get('care').hidden,false);assert.equal(f.get('roamCommands').hidden,true);
+ f.get('giveWater').listeners.click();f.get('giveSnack').listeners.click();f.get('playYarn').listeners.click();assert.deepEqual(f.submitted,['water','snack','yarn']);
+ await f.get('catJump').listeners.click();assert.equal(f.submitted.length,3);
+ f.roaming(true);assert.equal(f.get('care').hidden,true);assert.equal(f.get('roamCommands').hidden,false);
+ await f.get('chaseYarn').listeners.click();assert.equal(f.submitted.at(-1),'yarn');
+ f.roaming(false);assert.equal(f.get('care').hidden,false);assert.equal(f.get('roamCommands').hidden,true);
 });

@@ -10,6 +10,7 @@ let activeSeconds = 0, snoozeUntil = 0, lastBreakTick = Date.now();
 let playing = false;
 let safetyTimer = null;
 let dragStart = null;
+require('./roaming-cat')({app,BrowserWindow,ipcMain,screen,getDockWindow:()=>dockWin,preload:path.join(__dirname,'preload.js'),page:path.join(__dirname,'roaming-cat.html')});
 
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
 const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', dockWidth: 560 };

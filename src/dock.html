@@ -22,6 +22,7 @@
       transform-origin:top left; transform:scale(var(--dock-scale, 1));
     }
 
+    #wrap.roaming #cat,#wrap.roaming #careBubble,#wrap.roaming #yarnBubble {visibility:hidden;pointer-events:none;}
     #cat {
       position: absolute;
       right: 44px;
@@ -43,9 +44,13 @@
     #carriedCare {position:fixed;left:0;top:0;z-index:20;pointer-events:none;filter:drop-shadow(0 3px 5px #513b4440);}
     #carriedCare svg {width:100%;height:100%;display:block;}
     #carriedCare[hidden] {display:none;}
-    #care { position:absolute; left:36px; bottom:100px; display:flex; gap:16px; z-index:3; }
+    #care,#roamCommands { position:absolute; left:36px; bottom:100px; display:flex; gap:16px; z-index:3; }
     .care-button { width:74px; height:82px; border:1px solid #fff8; border-radius:22px; background:linear-gradient(155deg,#fff8ee,#efdfd6); color:#6b5147; box-shadow:0 5px 12px #583b3226; cursor:pointer; font-family:inherit; font-size:11px; font-weight:600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; -webkit-app-region:no-drag; }
     .care-button svg { width:50px; height:50px; pointer-events:none; }
+    .care-button[aria-pressed=true]{background:#e7d8ee;box-shadow:0 0 0 2px #b38eb666;}
+    #roamCommands[hidden],#care[hidden]{display:none!important;}
+    #roamCommands .care-button{width:58px;height:76px;}
+    #roamCommands .care-button svg{width:38px;height:38px;}
     .care-button:hover { background:#fff5e9; }
     .care-button:active { background:#ecd5c7; }
     .care-button:focus-visible { outline:3px solid #ff5c8acc; outline-offset:3px; }
@@ -113,6 +118,9 @@
       height: 32px;
       display: block;
     }
+    #walkToggle {border:0;background:#ffffff60;color:#745c70;border-radius:12px;padding:7px;display:grid;place-items:center;cursor:pointer;}
+    #walkToggle svg {width:24px;height:24px;}
+    #walkToggle:focus-visible {outline:none;box-shadow:0 0 0 3px #b38eb666;}
     #aiToggle { border:0; border-radius:16px; padding:9px; cursor:pointer; color:#59433c; background:#ffffff70; white-space:nowrap; }
     #aiToggle[aria-pressed=true] { background:#ff5c8a; color:white; }
     #chat { position:absolute; top:var(--dock-height,270px); left:16px; right:16px; bottom:8px; background:#fff7f2; color:#3a2a2a; border-radius:20px; padding:14px; box-sizing:border-box; display:flex; flex-direction:column; box-shadow:0 4px 18px #5433; }
@@ -136,6 +144,12 @@
       <button id="giveSnack" class="care-button" type="button" aria-label="Give the cat a fish treat" title="Give a fish treat"><span>Fish treat</span></button>
       <button id="playYarn" class="care-button" type="button" aria-label="Play with a yarn ball" title="Play with yarn"><span>Yarn</span></button>
     </div>
+    <div id="roamCommands" hidden role="group" aria-label="Roaming cat commands">
+      <button id="catJump" class="care-button" type="button" title="Make the roaming cat jump"><svg viewBox="0 0 48 48" fill="none" stroke="#9D78A9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 32V8m-9 9 9-9 9 9M9 37q15 9 30 0"/></svg><span>Jump</span></button>
+      <button id="catSpeed" class="care-button" type="button" title="Toggle faster walking" aria-pressed="false"><svg viewBox="0 0 48 48" fill="#E8B36A" stroke="#B68444" stroke-width="2" stroke-linejoin="round"><path d="m27 4-17 23h13l-2 17 17-25H25Z"/></svg><span>Speed</span></button>
+      <button id="catSit" class="care-button" type="button" title="Sit here"><svg viewBox="0 0 48 48" fill="#F3B572" stroke="#C98949" stroke-width="2" stroke-linejoin="round"><path d="m15 17 1-10 8 7 8-7 1 10q5 15-1 24H17q-6-9-2-24Z"/><path d="M33 39q13 2 9-10" fill="none" stroke-linecap="round"/><circle cx="21" cy="21" r="1" fill="#654a4a"/><circle cx="29" cy="21" r="1" fill="#654a4a"/></svg><span>Sit</span></button>
+      <button id="chaseYarn" class="care-button" type="button" title="Chase a yarn ball around the screen"><span>Yarn</span></button>
+    </div>
     <div id="careBubble" role="status" aria-live="polite" hidden>So happy… but I’m full! Let’s paws for a moment. ♡</div>
     <button id="resizeDock" type="button" aria-label="Resize search dock" title="Drag to resize · arrow keys adjust · double-click to reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m7 17 10-10m-5 0h5v5M7 12v5h5"/></svg></button>
     <div id="yarnBubble" role="status" aria-live="polite" hidden></div>
@@ -148,6 +162,7 @@
           <path d="M9 8l-4 5 4 5" />
         </svg>
       </button>
+      <button id="walkToggle" type="button" aria-label="Let the cat walk" title="Let the cat walk" aria-pressed="false"></button>
       <button id="aiToggle" aria-pressed="false" title="Turn AI chat on or off">AI OFF</button>
     </div>
   </div>
@@ -194,6 +209,25 @@
       if (!(e.key in widths)) return;
       e.preventDefault(); api.dockResize(Math.max(400, Math.min(560, widths[e.key]))); api.dockResizeEnd();
     });
+    let catRoaming = false;
+    const walkToggle=document.getElementById('walkToggle');
+    function updateWalkToggle() {
+      const label=catRoaming?'Bring the cat home':'Let the cat walk';
+      walkToggle.title=label;walkToggle.setAttribute('aria-label',label);walkToggle.setAttribute('aria-pressed',String(catRoaming));
+      walkToggle.innerHTML=catRoaming?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="8" cy="15" rx="3.5" ry="5" transform="rotate(-25 8 15)"/><ellipse cx="17" cy="8" rx="3.5" ry="5" transform="rotate(-25 17 8)"/><circle cx="5" cy="8" r="1.6"/><circle cx="14" cy="2" r="1.6"/></svg>';
+    }
+    document.getElementById('care').hidden=false;document.getElementById('roamCommands').hidden=true;
+    updateWalkToggle();
+    walkToggle.onclick=async()=>{walkToggle.disabled=true;try{if(catRoaming)await api.returnCat();else await api.releaseCat();}finally{walkToggle.disabled=false;}};
+    const stopRoaming = api.onCatRoaming?.(value => {
+      catRoaming=value;updateWalkToggle();document.getElementById('care').hidden=value;document.getElementById('roamCommands').hidden=!value;if(!value)document.getElementById('catSpeed').setAttribute('aria-pressed','false');
+      document.getElementById('wrap').classList.toggle('roaming',value);
+      endCarry();
+      document.getElementById('careBubble').hidden=true;
+      document.getElementById('yarnBubble').hidden=true;
+    });
+    input.title = 'Type /walk to release your cat, or /home to bring it back';
+    window.addEventListener('beforeunload',()=>stopRoaming?.());
     const catController = TypingCat.mount(document.getElementById('cat'), input);
     const carried = document.getElementById('carriedCare');
     let carry = null, holdTimer = null;
@@ -249,6 +283,20 @@
     }
     document.getElementById('playYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
     document.getElementById('playYarn').addEventListener('click', () => catController.playYarn());
+    document.getElementById('chaseYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
+    for(const [id,command] of [['catJump','jump'],['catSpeed','speed'],['catSit','sit'],['chaseYarn','yarn']]) {
+      const button=document.getElementById(id);
+      button.addEventListener('click',async()=>{
+        if(!catRoaming)return;
+        button.disabled=true;
+        try {
+          const result=await api.roamCommand(command);
+          if(result?.ok&&command==='speed') {
+            button.setAttribute('aria-pressed',String(result.fast));button.title=result.fast?'Fast walking · click for normal speed':'Normal walking · click for fast speed';
+          }
+        } finally {button.disabled=false;}
+      });
+    }
     function updateCatName(name) {
       const label = CatName.normalize(name) || 'Your cat';
       document.getElementById('careBubble').textContent = `${label} is happy—and full! Let’s paws for a moment. ♡`;
@@ -335,7 +383,16 @@
     window.addEventListener('focus', () => { if (!busy) refresh(); });
     refresh();
     async function submit() {
-      const q = input.value.trim(); if (!q || busy) return;
+      const q = input.value.trim();
+      if (/^\/(walk|home)$/i.test(q)) {
+        const command=q.toLowerCase();
+        try {
+          const ok=command==='/walk'?await api.releaseCat():await api.returnCat();
+          if(ok){input.value='';catController.queryReset();}
+        } catch { input.title='Could not release the cat. Please try again.'; }
+        return;
+      }
+      if (!q || busy) return;
       await refresh();
       if (!enabled) { api.searchSubmit(q); input.value = ''; catController.searchCompleted(); return; }
       await showPanel(true);

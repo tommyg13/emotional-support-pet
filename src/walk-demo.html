@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walking cat demo</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; color: #5b4238;
+    background: linear-gradient(180deg, #f4e6dd 0%, #ead3c7 55%, #d9bdb0 100%); }
+  #hint { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); padding: 10px 18px; border-radius: 18px; background: #fff5e9; border: 1px solid #eacbc0; font-size: 14px; }
+  #tools { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 99999; }
+  button { border: 1px solid #fff8; border-radius: 14px; padding: 8px 14px; background: linear-gradient(155deg, #fff8ee, #efdfd6); color: #6b5147; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px #583b3226; }
+  button:hover { background: #fff5e9; } button:focus-visible { outline: 3px solid #ff5c8acc; outline-offset: 2px; }
+  .ping { position: fixed; width: 18px; height: 18px; margin: -9px; border-radius: 50%; border: 2px solid #b38eb6; pointer-events: none; animation: ping .7s ease-out forwards; }
+  @keyframes ping { to { transform: scale(2.6); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .ping { animation: none; opacity: .5; } }
+</style>
+</head>
+<body>
+  <div id="hint">Click anywhere and the cat walks there. Click the cat to make it hop.</div>
+  <div id="tools">
+    <button id="run">Run across</button><button id="sit">Sit</button><button id="hop">Hop</button><button id="rand">Wander</button>
+  </div>
+  <script src="walking-cat.js"></script>
+  <script>
+    const cat = WalkingCat.mount(document.body, { x: innerWidth * 0.3, y: innerHeight * 0.75 });
+    function ping(x, y) { const d = document.createElement('div'); d.className = 'ping'; d.style.left = x + 'px'; d.style.top = y + 'px'; document.body.appendChild(d); setTimeout(() => d.remove(), 800); }
+    addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; ping(e.clientX, e.clientY); cat.walkTo(e.clientX, e.clientY); });
+    run.onclick = async () => { const p = cat.getPosition(); await cat.walkTo(p.x < innerWidth / 2 ? innerWidth - 60 : 60, p.y); cat.jump(); };
+    sit.onclick = () => cat.sit();
+    hop.onclick = () => cat.jump();
+    rand.onclick = async () => { for (let i = 0; i < 4; i++) if (!(await cat.walkTo(60 + Math.random() * (innerWidth - 120), innerHeight * (0.35 + Math.random() * 0.6)))) break; };
+  </script>
+</body>
+</html>
