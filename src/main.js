@@ -13,7 +13,7 @@ let dragStart = null;
 const roamingCat = require('./roaming-cat')({app,BrowserWindow,ipcMain,screen,getDockWindow:()=>dockWin,getPersonality:()=>loadSettings().catPersonality,getCharacter:()=>loadSettings().searchCharacter,preload:path.join(__dirname,'preload.js'),page:path.join(__dirname,'roaming-cat.html')});
 
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
-const DEFAULTS = { searchCharacter: 'wizard-cat', characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', dockWidth: 560 };
+const DEFAULTS = { searchCharacter: 'wizard-cat', characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', puppyName: '', dockWidth: 560 };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
@@ -22,6 +22,7 @@ function loadSettings() {
     const settings = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) };
     settings.searchCharacter = ['wizard-cat','pomeranian'].includes(settings.searchCharacter) ? settings.searchCharacter : 'wizard-cat';
     settings.catName = CatName.normalize(settings.catName);
+    settings.puppyName = CatName.normalize(settings.puppyName);
     return settings;
   } catch {
     return { ...DEFAULTS };
@@ -80,6 +81,7 @@ ipcMain.handle('dev-cat-action', (event, action, value) => {
   if (!dockWin || dockWin.isDestroyed()) return false;
   if (action === 'mood' && ['normal','bored','sleepy','auto'].includes(value)) dockWin.webContents.send('cat-dev-mood', value);
   else if (action === 'wave') dockWin.webContents.send('cat-dev-wave');
+  else if (action === 'puppy' && ['idle','welcome','water','snack','play','sit','sleep','wake'].includes(value) && loadSettings().searchCharacter === 'pomeranian') dockWin.webContents.send('companion-dev-action', value);
   else return false;
   return true;
 });
@@ -367,6 +369,7 @@ ipcMain.handle('set-settings', (_e, patch) => {
   next.catPersonality = ['calm', 'playful', 'sleepy'].includes(next.catPersonality) ? next.catPersonality : 'calm';
   next.searchCharacter = ['wizard-cat','pomeranian'].includes(next.searchCharacter) ? next.searchCharacter : 'wizard-cat';
   next.catName = CatName.normalize(next.catName);
+  next.puppyName = CatName.normalize(next.puppyName);
   saveSettings(next);
   if ('searchCharacter' in patch) {
     roamingCat.home();
@@ -375,6 +378,7 @@ ipcMain.handle('set-settings', (_e, patch) => {
   if ('catName' in patch) {
     for (const win of [dockWin, breakWin]) if (win && !win.isDestroyed()) win.webContents.send('cat-name', next.catName);
   }
+  if ('puppyName' in patch && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('puppy-name', next.puppyName);
   if ('catPersonality' in patch && dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('cat-personality', next.catPersonality);
   if (!next.breakReminderEnabled) closeBreakReminder(false);
   if ('searchDock' in patch) applySearchDock();

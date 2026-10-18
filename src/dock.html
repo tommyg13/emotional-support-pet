@@ -46,6 +46,7 @@
     #carriedCare[hidden] {display:none;}
     #care,#roamCommands { position:absolute; left:36px; bottom:100px; display:flex; gap:16px; z-index:3; }
     .care-button { width:74px; height:82px; border:1px solid #fff8; border-radius:22px; background:linear-gradient(155deg,#fff8ee,#efdfd6); color:#6b5147; box-shadow:0 5px 12px #583b3226; cursor:pointer; font-family:inherit; font-size:11px; font-weight:600; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; -webkit-app-region:no-drag; }
+    .care-button[hidden] {display:none;}
     .care-button svg { width:50px; height:50px; pointer-events:none; }
     .care-button[aria-pressed=true]{background:#e7d8ee;box-shadow:0 0 0 2px #b38eb666;}
     #roamCommands[hidden],#care[hidden]{display:none!important;}
@@ -174,7 +175,7 @@
     <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
   </section>
   <script src="typing-cat.js"></script>
-  <script src="pomeranian.js"></script>
+  <script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script>
   <script src="search-character.js"></script>
   <script src="cat-name.js"></script>
   <script>
@@ -215,13 +216,14 @@
     let catRoaming = false, selectedCharacter = 'wizard-cat', currentPersonality = 'calm';
     const walkToggle=document.getElementById('walkToggle');
     function updateWalkToggle() {
-      const label=catRoaming?'Bring the cat home':'Let the cat walk';
+      const pet=selectedCharacter==='pomeranian'?'puppy':'cat';
+      const label=catRoaming?'Bring the '+pet+' home':'Let the '+pet+' walk';
       walkToggle.title=label;walkToggle.setAttribute('aria-label',label);walkToggle.setAttribute('aria-pressed',String(catRoaming));
       walkToggle.innerHTML=catRoaming?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="8" cy="15" rx="3.5" ry="5" transform="rotate(-25 8 15)"/><ellipse cx="17" cy="8" rx="3.5" ry="5" transform="rotate(-25 17 8)"/><circle cx="5" cy="8" r="1.6"/><circle cx="14" cy="2" r="1.6"/></svg>';
     }
     document.getElementById('care').hidden=false;document.getElementById('roamCommands').hidden=true;
     updateWalkToggle();
-    walkToggle.onclick=async()=>{if(selectedCharacter!=='wizard-cat')return;walkToggle.disabled=true;try{if(catRoaming)await api.returnCat();else await api.releaseCat();}finally{walkToggle.disabled=false;}};
+    walkToggle.onclick=async()=>{if(!SearchCharacters.predefined.find(entry=>entry.id===selectedCharacter)?.modes.includes('roaming'))return;walkToggle.disabled=true;try{if(catRoaming)await api.returnCat();else await api.releaseCat();}finally{walkToggle.disabled=false;}};
     const stopRoaming = api.onCatRoaming?.(value => {
       catRoaming=value;updateWalkToggle();document.getElementById('care').hidden=value;document.getElementById('roamCommands').hidden=!value;if(!value)document.getElementById('catSpeed').setAttribute('aria-pressed','false');
       document.getElementById('wrap').classList.toggle('roaming',value);
@@ -254,6 +256,7 @@
       catController.updateManualCare(e.clientX,e.clientY);
     }
     document.getElementById('cat').addEventListener('cat-manual-care-delivered', endCarry);
+    document.getElementById('cat').addEventListener('cat-manual-care-cancelled', endCarry);
     window.addEventListener('pointermove', e => {
       if (!carry || carry.id !== e.pointerId) return;
       carry.x=e.clientX;carry.y=e.clientY;moveCare(e);
@@ -266,7 +269,7 @@
       const button = document.getElementById(id);
       button.insertAdjacentHTML('afterbegin', catController.icons.care[kind]);
       let suppressClick = false;
-      button.title = 'Click to give, or hold and bring it to the cat';
+      button.title = 'Click to give, or hold and bring it to your companion';
       button.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         endCarry(); suppressClick = false;
@@ -301,11 +304,21 @@
         } finally {button.disabled=false;}
       });
     }
+    const companionNames = {catName:'',puppyName:''};
+    function refreshCompanionName() {
+      const puppy=selectedCharacter==='pomeranian';
+      const name=companionNames[puppy?'puppyName':'catName'];
+      updateCatName(name);
+      catController.setName(name);
+      document.getElementById('care').setAttribute('aria-label','Care for '+(name||(puppy?'your puppy':'your cat')));
+    }
     function updateCatName(name) {
-      const label = CatName.normalize(name) || 'Your cat';
+      const label = CatName.normalize(name) || (selectedCharacter==='pomeranian'?'Your puppy':'Your cat');
       document.getElementById('careBubble').textContent = `${label} is happy—and full! Let’s paws for a moment. ♡`;
     }
-    const stopCatName = api.onCatName?.(updateCatName);
+    const stopCatName = api.onCatName?.(name=>{companionNames.catName=CatName.normalize(name);refreshCompanionName();});
+    const stopPuppyName=api.onPuppyName?.(name=>{companionNames.puppyName=CatName.normalize(name);refreshCompanionName();});
+    window.addEventListener('beforeunload',()=>stopPuppyName?.());
     document.getElementById('cat').addEventListener('cat-yarn-complete', e => {
       const bubble = document.getElementById('yarnBubble');
       bubble.textContent = e.detail.message;
@@ -316,6 +329,9 @@
       bubble.textContent = e.detail.message; bubble.hidden = false;
       document.getElementById('careBubble').hidden = true;
     });
+    document.getElementById('cat').addEventListener('companion-bubble', e => {
+      document.getElementById('yarnBubble').textContent=e.detail.message;document.getElementById('yarnBubble').hidden=false;
+    });
     document.getElementById('cat').addEventListener('cat-yarn-quote-clear', () => {
       document.getElementById('yarnBubble').hidden = true;
     });
@@ -323,15 +339,19 @@
       document.getElementById('careBubble').hidden = !e.detail.full;
     });
     window.addEventListener('beforeunload', () => { catController.destroy(); stopCatName?.(); });
-    function selectSearchCharacter(id) {
+    function selectSearchCharacter(id, retry=false) {
       const definition = SearchCharacters.predefined.find(entry => entry.id === id);
-      if (!definition || id === selectedCharacter) return;
+      if (!definition || (id === selectedCharacter && !retry)) return;
       endCarry();catController.destroy();
       document.getElementById('cat').replaceChildren();
       selectedCharacter = id;
       catController = SearchCharacters.mount(id, 'docked', document.getElementById('cat'), {input});
       catController.setPersonality(currentPersonality);
-      walkToggle.hidden = !definition.modes.includes('roaming');
+      walkToggle.hidden = !definition.modes.includes('roaming');updateWalkToggle();
+      document.getElementById('catSit').hidden=false;
+      document.getElementById('catJump').title='Make your companion jump';
+      document.getElementById('roamCommands').setAttribute('aria-label','Roaming companion commands');
+      const chase=document.getElementById('chaseYarn');chase.querySelector('svg')?.remove();chase.insertAdjacentHTML('afterbegin',catController.icons.toy);chase.querySelector('span').textContent=id==='pomeranian'?'Ball':'Yarn';chase.title='Chase the '+(id==='pomeranian'?'ball':'yarn');
       document.getElementById('careBubble').hidden = true;
       document.getElementById('yarnBubble').hidden = true;
       for (const [buttonId,kind,label] of [['giveWater','water','Water'],['giveSnack','snack',definition.items.food==='bone'?'Bone treat':'Fish treat'],['playYarn','toy',definition.items.toy==='ball'?'Ball':'Yarn']]) {
@@ -340,16 +360,31 @@
         button.insertAdjacentHTML('afterbegin',kind==='toy'?catController.icons.toy:catController.icons.care[kind]);
         button.querySelector('span').textContent = label;
         button.setAttribute('aria-label',label);
-        button.title = kind==='toy'?'Play with '+label.toLowerCase():catController.supports('beginManualCare')?'Click to give, or hold and bring it to the cat':'Give '+label.toLowerCase();
+        button.title = kind==='toy'?'Play with '+label.toLowerCase():catController.supports('beginManualCare')?'Click to give, or hold and bring it to your companion':'Give '+label.toLowerCase();
       }
       document.getElementById('care').setAttribute('aria-label','Care for your '+definition.name);
-      input.title = id==='wizard-cat'?'Type /walk to release your cat, or /home to bring it back':'Your Pomeranian keeps you company while you search';
+      refreshCompanionName();
+      input.title = 'Type /walk to release your companion, or /home to bring it back';
     }
+    document.getElementById('cat').addEventListener('character-retry',()=>{if(selectedCharacter==='pomeranian')selectSearchCharacter(selectedCharacter,true);});
     const stopSearchCharacter = api.onSearchCharacter?.(selectSearchCharacter);
     window.addEventListener('beforeunload',()=>stopSearchCharacter?.());
-    api.getSettings().then(s => { currentPersonality=s.catPersonality||'calm';selectSearchCharacter(s.searchCharacter||'wizard-cat');catController.setPersonality(currentPersonality);updateCatName(s.catName); }).catch(() => {});
+    api.getSettings().then(s => { currentPersonality=s.catPersonality||'calm';selectSearchCharacter(s.searchCharacter||'wizard-cat');catController.setPersonality(currentPersonality);companionNames.catName=CatName.normalize(s.catName);companionNames.puppyName=CatName.normalize(s.puppyName);refreshCompanionName(); }).catch(() => {});
     api.onCatPersonality(value => { currentPersonality=value;catController.setPersonality(value); });
-    api.onDevCatAction((action, value) => window.dispatchEvent(new CustomEvent(action === 'mood' ? 'cat-dev-mood' : 'cat-dev-wave', { detail: value }))); 
+    const stopDevCatAction=api.onDevCatAction(async (action, value) => {
+      if(action==='puppy') {
+        if(selectedCharacter!=='pomeranian'||!['idle','welcome','water','snack','play','sit','sleep','wake'].includes(value))return;
+        const controller=catController;
+        if(!await controller.ready||controller!==catController||controller.destroyed)return;
+        if(value==='water'||value==='snack')controller.giveCare(value);
+        else if(value==='play')controller.play();
+        else if(value==='sit'||value==='sleep'||value==='wake')controller[value]();
+        else controller.react(value);
+        return;
+      }
+      if(action==='mood'||action==='wave')window.dispatchEvent(new CustomEvent(action==='mood'?'cat-dev-mood':'cat-dev-wave',{detail:value}));
+    });
+    window.addEventListener('beforeunload',()=>stopDevCatAction?.());
 
     // Explicit capture gives the animation reliable press/release state during window dragging.
     const wrap = document.getElementById('wrap');
@@ -387,7 +422,7 @@
     }
     async function refresh() {
       const s = await api.getSettings();
-      updateCatName(s.catName);
+      companionNames.catName=CatName.normalize(s.catName);companionNames.puppyName=CatName.normalize(s.puppyName);refreshCompanionName();
       const nextModel = s.aiModels?.[s.aiProvider] || '';
       if (provider && (provider !== s.aiProvider || activeModel !== nextModel)) reset();
       activeModel = nextModel;
@@ -413,7 +448,7 @@
     async function submit() {
       const q = input.value.trim();
       if (/^\/(walk|home)$/i.test(q)) {
-        if(selectedCharacter!=='wizard-cat'){input.title='Walking is available for the wizard cat.';return;}
+        if(!SearchCharacters.predefined.find(entry=>entry.id===selectedCharacter)?.modes.includes('roaming'))return;
         const command=q.toLowerCase();
         try {
           const ok=command==='/walk'?await api.releaseCat():await api.returnCat();

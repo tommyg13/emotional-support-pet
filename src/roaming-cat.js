@@ -15,7 +15,7 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
   function authorized(event) {return win&&!win.isDestroyed()&&event.sender===win.webContents;}
   let releaseCat;
   ipcMain.handle('cat-release',releaseCat=async event=>{
-    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||getCharacter()!=='wizard-cat')return false;
+    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||!['wizard-cat','pomeranian'].includes(getCharacter()))return false;
     if(win&&!win.isDestroyed())return true;
     const b=dock.getBounds(), display=screen.getDisplayMatching(b), area=display.workArea;
     const scale=b.width/560;
@@ -27,7 +27,7 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
     created.on('closed',()=>{clearInterval(timer);timer=null;clickListener?.stop();clickListener=null;returning=false;win=null;hit=null;held=false;dock.removeListener('closed',dockClosed);notify(false);});
     created.webContents.on('render-process-gone',()=>{if(!created.isDestroyed())created.close();});
     try {
-      await created.loadFile(page,{query:{x:String(b.x+435*scale-area.x),y:String(b.y+180*scale-area.y),width:String(area.width),height:String(area.height)}});
+      await created.loadFile(page,{query:{character:getCharacter(),x:String(b.x+435*scale-area.x),y:String(b.y+180*scale-area.y),width:String(area.width),height:String(area.height)}});
       if(created.isDestroyed()||win!==created)return false;
       created.showInactive();notify(true);
       clickListener=startClicks(point=>{

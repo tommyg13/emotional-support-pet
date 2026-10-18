@@ -1,7 +1,7 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const {EventEmitter}=require('node:events');const install=require('../src/roaming-cat');
 function fixture(fail=false,personality='calm',character='wizard-cat'){
  const handlers={},events=[],windows=[];let click,stopped=false;let cursor={x:0,y:0};
- class Win extends EventEmitter{constructor(bounds){super();this.bounds=bounds;this.dead=false;this.webContents=new EventEmitter();this.webContents.isDestroyed=()=>false;this.webContents.send=(...v)=>events.push(v);windows.push(this);}getBounds(){return this.bounds;}isDestroyed(){return this.dead;}setAlwaysOnTop(){}setVisibleOnAllWorkspaces(){}setIgnoreMouseEvents(v){this.ignored=v;}showInactive(){}async loadFile(){if(fail)throw Error('load failed');}close(){if(!this.dead){this.dead=true;this.emit('closed');}}}
+ class Win extends EventEmitter{constructor(bounds){super();this.bounds=bounds;this.dead=false;this.webContents=new EventEmitter();this.webContents.isDestroyed=()=>false;this.webContents.send=(...v)=>events.push(v);windows.push(this);}getBounds(){return this.bounds;}isDestroyed(){return this.dead;}setAlwaysOnTop(){}setVisibleOnAllWorkspaces(){}setIgnoreMouseEvents(v){this.ignored=v;}showInactive(){}async loadFile(page,options){this.loadOptions=options;if(fail)throw Error('load failed');}close(){if(!this.dead){this.dead=true;this.emit('closed');}}}
  const dock=new Win({x:100,y:300,width:560,height:270});const app=new EventEmitter();app.whenReady=async()=>{};const screen=new EventEmitter();screen.getDisplayMatching=()=>({workArea:{x:0,y:0,width:1200,height:800}});screen.getCursorScreenPoint=()=>cursor;
  install({app,screen,BrowserWindow:Win,ipcMain:{handle:(n,f)=>handlers[n]=f,on:(n,f)=>handlers[n]=f},getDockWindow:()=>dock,preload:'preload.js',page:'roaming-cat.html',getPersonality:()=>personality,getCharacter:()=>character,startClicks:cb=>{click=cb;return {enabled:true,stop(){stopped=true;}};}});
  return {click:p=>click(p),stopped:()=>stopped,handlers,dock,events,windows,cursor:p=>cursor=p,event:()=>({sender:windows.at(-1).webContents})};
@@ -57,9 +57,18 @@ test('typing does not override scruff dragging or a home request',async()=>{
  f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.equal(f.events.length,returning);f.dock.close();
 });
 
-test('static Pomeranian cannot start a roaming window through commands or release IPC',async()=>{
+test('Pomeranian release uses the same authorized desktop surface and supports sitting',async()=>{
  const f=fixture(false,'calm','pomeranian');
- assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),false);
- assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'jump')).ok,false);
- assert.equal(f.windows.length,1);
+ try{
+  assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),true);
+  assert.equal(f.windows.at(-1).loadOptions.query.character,'pomeranian');
+  assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'sit')).ok,true);
+  assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'jump')).ok,true);
+  assert.equal(f.windows.length,2);
+  f.handlers['cat-home']({sender:f.dock.webContents});f.handlers['cat-home-arrived'](f.event());
+  assert.deepEqual(f.events.at(-1),['cat-roaming',false]);
+ }finally{f.dock.close();}
+});
+test('unknown companions cannot release a desktop surface',async()=>{
+ const f=fixture(false,'calm','unknown');assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),false);assert.equal(f.windows.length,1);
 });

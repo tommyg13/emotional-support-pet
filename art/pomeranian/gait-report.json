@@ -1,0 +1,21 @@
+{
+  "weighted_leg_vertices": {
+    "FrontL": 2233,
+    "RearL": 1964,
+    "FrontR": 2325,
+    "RearR": 1820
+  },
+  "clips": {
+    "Walk": {
+      "max_edge_stretch": 1.731,
+      "max_stance_height_error": 0.0,
+      "max_stance_paw_tilt": 0.0
+    },
+    "Trot": {
+      "max_edge_stretch": 2.066,
+      "max_stance_height_error": 0.0,
+      "max_stance_paw_tilt": 0.0
+    }
+  },
+  "texture_size": 1024
+}

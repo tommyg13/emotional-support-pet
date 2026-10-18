@@ -1,0 +1,10 @@
+{
+  "Sit": {
+    "min_z": 0.0051,
+    "max_edge_stretch": 2.405
+  },
+  "Sleep": {
+    "min_z": 0.005,
+    "max_edge_stretch": 2.979
+  }
+}

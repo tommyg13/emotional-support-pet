@@ -11,7 +11,7 @@ test('saved search character is restricted to presets and changing it closes the
  handlers['set-settings']({}, {catPersonality:'playful'});assert.equal(closed,2);
 });
 test('all edited browser inline scripts compile',()=>{
- for(const name of ['dock.html','settings.html','../previews/pomeranian-studio.html']){
+ for(const name of ['dock.html','settings.html','roaming-cat.html','../previews/pomeranian-studio.html']){
   const html=fs.readFileSync(path.join(__dirname,'../src',name),'utf8');
   for(const match of html.matchAll(/<script>([\s\S]*?)<\/script>/g))new vm.Script(match[1],{filename:name});
  }

@@ -10,7 +10,7 @@ function fixture() {
   watchAt:(...args)=>calls.push(['look',...args]),
   destroy:()=>{destroyed++;resolve?.(false);}};
  for(const name of ['sit','stop','jump','setSpeed','setPosition','getPosition','getPose','isHeld','drop','setPersonality','searchCompleted','queryReset','giveCare','beginManualCare','updateManualCare','cancelManualCare','playYarn','play','setMood','react']) renderer[name]=(...args)=>{calls.push([name,...args]);return name==='getPose'?'idle':true;};
- const context=vm.createContext({Pomeranian:{mount:()=>renderer,careIcons:{water:'bowl-svg',snack:'bone-svg'},toyIcon:'ball-svg'},TypingCat:{mount:()=>renderer,careIcons:{water:'water-svg'},yarnIcon:'yarn-svg'},WalkingCat:{mount:()=>renderer}});
+ const context=vm.createContext({Pomeranian:{mount:()=>renderer,careIcons:{water:'bowl-svg',snack:'bone-svg'},toyIcon:'ball-svg'},TypingCat:{mount:()=>renderer,careIcons:{water:'water-svg'},yarnIcon:'yarn-svg'},WalkingCat:{mount:()=>renderer},RoamingDog:{mount:()=>renderer}});
  vm.runInContext('const TypingCat = globalThis.TypingCat; const WalkingCat = globalThis.WalkingCat; delete globalThis.TypingCat; delete globalThis.WalkingCat;',context);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/search-character.js'),'utf8'),context);
  return {api:context.SearchCharacters,calls,destroyed:()=>destroyed,arrive:()=>resolve(true)};
@@ -46,9 +46,23 @@ test('Pomeranian advertises its own items and only supported docked actions',asy
  const f=fixture(),c=f.api.mount('pomeranian','docked',{});
  assert.equal(c.definition.type,'3d');assert.equal(c.definition.items.food,'bone');
  assert.equal(c.icons.toy,'ball-svg');assert.equal(c.supports('walkTo'),false);
- assert.equal(c.supports('beginManualCare'),false);assert.equal(c.supports('play'),true);
+ assert.equal(c.supports('beginManualCare'),true);assert.equal(c.supports('play'),true);
  c.play();c.giveCare('snack');c.searchCompleted();assert.equal(await c.ready,true);
  assert.deepEqual(f.calls,[['play'],['giveCare','snack'],['searchCompleted']]);
- assert.throws(()=>f.api.mount('pomeranian','roaming',{}),/Unsupported character mode/);
+ assert.ok(c.definition.modes.includes('roaming'));
  c.destroy();assert.equal(c.play(),false);
+});
+
+test('Pomeranian manual-care actions forward through the common controller',()=>{
+ const f=fixture(),c=f.api.mount('pomeranian','docked',{});
+ c.beginManualCare('water');c.updateManualCare(140,150);c.cancelManualCare();
+ assert.deepEqual(f.calls,[['beginManualCare','water'],['updateManualCare',140,150],['cancelManualCare']]);
+ c.destroy();assert.equal(c.beginManualCare('water'),false);
+});
+
+test('roaming dog forwards movement and running including supported rest poses',async()=>{
+ const f=fixture(),c=f.api.mount('pomeranian','roaming',{});
+ assert.equal(c.supports('sit'),true);assert.equal(c.supports('jump'),true);
+ const arrival=c.runTo(130,240,{home:true});f.arrive();assert.equal(await arrival,true);
+ assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0])),['walkTo',130,240,{home:true,run:true}]);c.destroy();
 });
