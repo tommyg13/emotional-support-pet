@@ -77,6 +77,7 @@ async function dockFixture(aiEnabled=false, fail=false) {
   const context=vm.createContext({api, document:{getElementById:get, createElement:()=>({scrollIntoView(){}})},
     window:{addEventListener(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({cancelManualCare(){},playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
   vm.runInContext(fs.readFileSync(path.join(sourceDir,'cat-name.js'),'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(sourceDir,'search-character.js'),'utf8'), context);
   const html=fs.readFileSync(path.join(sourceDir,'dock.html'),'utf8');
   vm.runInContext([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1],context);
   await new Promise(resolve=>setImmediate(resolve));

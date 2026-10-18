@@ -173,6 +173,7 @@
     <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
   </section>
   <script src="typing-cat.js"></script>
+  <script src="search-character.js"></script>
   <script src="cat-name.js"></script>
   <script>
     const input = document.getElementById('q');
@@ -229,7 +230,7 @@
     input.addEventListener('input',e=>{if(catRoaming&&!e.isComposing&&input.value.trim()&&!input.value.trim().startsWith('/'))api.searchTyping();});
     input.title = 'Type /walk to release your cat, or /home to bring it back';
     window.addEventListener('beforeunload',()=>stopRoaming?.());
-    const catController = TypingCat.mount(document.getElementById('cat'), input);
+    const catController = SearchCharacters.mount('wizard-cat', 'docked', document.getElementById('cat'), {input});
     const carried = document.getElementById('carriedCare');
     let carry = null, holdTimer = null;
     function endCarry() {
@@ -261,7 +262,7 @@
     window.addEventListener('beforeunload', endCarry);
     for (const [id, kind] of [['giveWater', 'water'], ['giveSnack', 'snack']]) {
       const button = document.getElementById(id);
-      button.insertAdjacentHTML('afterbegin', TypingCat.careIcons[kind]);
+      button.insertAdjacentHTML('afterbegin', catController.icons.care[kind]);
       let suppressClick = false;
       button.title = 'Click to give, or hold and bring it to the cat';
       button.addEventListener('pointerdown', e => {
@@ -274,7 +275,7 @@
           if (!carry || carry.button !== button) return;
           suppressClick = true;
           if (!catController.beginManualCare(kind)) {endCarry(); return;}
-          carry.active = true; carried.innerHTML = TypingCat.careIcons[kind]; carried.hidden = false;
+          carry.active = true; carried.innerHTML = catController.icons.care[kind]; carried.hidden = false;
           moveCare({clientX:carry.x,clientY:carry.y});
         },450);
       });
@@ -282,9 +283,9 @@
       for (const event of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(event,endCarry);
       button.addEventListener('click', () => {if (suppressClick) {suppressClick=false;return;} catController.giveCare(kind);});
     }
-    document.getElementById('playYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
-    document.getElementById('playYarn').addEventListener('click', () => catController.playYarn());
-    document.getElementById('chaseYarn').insertAdjacentHTML('afterbegin', TypingCat.yarnIcon);
+    document.getElementById('playYarn').insertAdjacentHTML('afterbegin', catController.icons.toy);
+    document.getElementById('playYarn').addEventListener('click', () => catController.play());
+    document.getElementById('chaseYarn').insertAdjacentHTML('afterbegin', catController.icons.toy);
     for(const [id,command] of [['catJump','jump'],['catSpeed','speed'],['catSit','sit'],['chaseYarn','yarn']]) {
       const button=document.getElementById(id);
       button.addEventListener('click',async()=>{
