@@ -22,7 +22,9 @@
     "check:pomeranian-interaction": "electron scripts/check-pomeranian-interaction.cjs",
     "check:panda": "electron scripts/check-panda.cjs",
     "check:panda-roaming": "electron scripts/check-panda-roaming.cjs",
-    "check:panda-motion": "electron scripts/check-panda-motion.cjs"
+    "check:panda-motion": "electron scripts/check-panda-motion.cjs",
+    "check:activities": "electron scripts/check-companion-activities.cjs",
+    "check:dock-stow": "electron scripts/check-dock-stow.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

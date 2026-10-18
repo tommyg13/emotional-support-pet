@@ -76,3 +76,12 @@ test('unknown companions cannot release a desktop surface',async()=>{
 test('panda release uses the authorized desktop surface and its own renderer query',async()=>{
  const f=fixture(false,'calm','panda');try{assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),true);assert.equal(f.windows.at(-1).loadOptions.query.character,'panda');assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'sit')).ok,true);}finally{f.dock.close();}
 });
+
+test('activity relay accepts only known dock requests and never interrupts dragging',async()=>{
+ const f=fixture();try{
+  const send=(kind,event={sender:f.dock.webContents})=>f.handlers['companion-activity'](event,kind);
+  assert.equal(send('gift'),false);await f.handlers['cat-release']({sender:f.dock.webContents});assert.equal(send('gift',{sender:{}}),false);assert.equal(send('arbitrary-command'),false);assert.equal(send('file'),false);
+  for(const kind of ['focus-start','focus-complete','gift']){assert.equal(send(kind),true);assert.deepEqual(f.events.at(-1),['companion-activity',kind]);}
+  f.handlers['cat-roam-held'](f.event(),true);assert.equal(send('gift'),false);f.handlers['cat-roam-held'](f.event(),false);f.handlers['cat-home']({sender:f.dock.webContents});assert.equal(send('gift'),false);
+ }finally{f.dock.close();}
+});

@@ -14,6 +14,10 @@ app.whenReady().then(async()=>{
   await dock.loadFile(path.join(__dirname,'../src/dock.html'));await dock.webContents.executeJavaScript('catController.ready');
   assert.equal(await handlers['cat-release']({sender:dock.webContents}),true);
   assert.equal(await run('cat.ready'),true);await run('clearTimeout(firstWalk)');
+  assert.equal(await handlers['companion-activity']({sender:dock.webContents},'gift'),true);await wait(120);assert.equal(await run("document.querySelector('.activity-prop').hidden"),false);
+  assert.equal(await handlers['companion-activity']({sender:dock.webContents},'focus-start'),true);await wait(120);assert.equal(await run('cat.getPose()'),'sitting');
+  assert.equal(await handlers['companion-activity']({sender:dock.webContents},'focus-cancel'),true);await wait(80);assert.equal(await run("document.querySelector('.activity-note').hidden"),true);
+  await run("(()=>{const dt=new DataTransfer();dt.items.add(new File(['demo'],'demo.txt',{type:'text/plain'}));cat.element.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,bubbles:true,cancelable:true}));})();");assert.equal(await run("document.querySelector('.activity-prop').hidden"),false);
   assert.equal(await run('character'),'panda');assert.equal(await dock.webContents.executeJavaScript('catRoaming'),true);
   assert.equal(await dock.webContents.executeJavaScript("document.getElementById('catSit').hidden"),false);
   assert.equal(await dock.webContents.executeJavaScript("document.getElementById('chaseYarn').querySelector('span').textContent"),'Leaf');

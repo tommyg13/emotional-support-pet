@@ -15,7 +15,7 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
   function authorized(event) {return win&&!win.isDestroyed()&&event.sender===win.webContents;}
   let releaseCat;
   ipcMain.handle('cat-release',releaseCat=async event=>{
-    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||!['wizard-cat','pomeranian','panda'].includes(getCharacter()))return false;
+    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||dock.__dockStowed||!['wizard-cat','pomeranian','panda'].includes(getCharacter()))return false;
     if(win&&!win.isDestroyed())return true;
     const b=dock.getBounds(), display=screen.getDisplayMatching(b), area=display.workArea;
     const scale=b.width/560;
@@ -66,6 +66,10 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
     win.webContents.send('cat-roam-command',{command,fast});
     return {ok:true,fast};
   });
+  ipcMain.handle('companion-activity',(event,kind)=>{
+    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||!['focus-start','focus-complete','focus-cancel','gift'].includes(kind)||!win||win.isDestroyed()||held||returning)return false;
+    win.webContents.send('companion-activity',kind);return true;
+  });
   ipcMain.handle('cat-home',event=>{const dock=getDockWindow();if(!authorized(event)&&(!dock||event.sender!==dock.webContents))return false;requestHome();return true;});
   ipcMain.on('cat-home-arrived',event=>{if(authorized(event)&&returning)home();});
   ipcMain.on('cat-home-cancelled',event=>{if(authorized(event))returning=false;});
@@ -73,5 +77,5 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
   ipcMain.on('cat-roam-held',(event,value)=>{if(authorized(event)){held=value===true;if(held)win.webContents.send('cat-personality',getPersonality());}});
   app.whenReady().then(()=>screen.on('display-removed',home));
   app.on('before-quit',home);
-  return {home};
+  return {home,isRoaming:()=>!!(win&&!win.isDestroyed())};
 };

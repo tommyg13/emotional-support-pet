@@ -136,6 +136,7 @@
     .message.error { color:#9a243f; }
     #usage, #chatStatus { font-size:12px; color:#806b64; }
   </style>
+<link rel="stylesheet" href="companion-activities.css"><link rel="stylesheet" href="dock-stow.css">
 </head>
 
 <body>
@@ -226,7 +227,7 @@
     updateWalkToggle();
     walkToggle.onclick=async()=>{if(!SearchCharacters.predefined.find(entry=>entry.id===selectedCharacter)?.modes.includes('roaming'))return;walkToggle.disabled=true;try{if(catRoaming)await api.returnCat();else await api.releaseCat();}finally{walkToggle.disabled=false;}};
     const stopRoaming = api.onCatRoaming?.(value => {
-      catRoaming=value;updateWalkToggle();document.getElementById('care').hidden=value;document.getElementById('roamCommands').hidden=!value;if(!value)document.getElementById('catSpeed').setAttribute('aria-pressed','false');
+      catRoaming=value;window.dispatchEvent(new Event('companion-mode-changed'));updateWalkToggle();document.getElementById('care').hidden=value;document.getElementById('roamCommands').hidden=!value;if(!value)document.getElementById('catSpeed').setAttribute('aria-pressed','false');
       document.getElementById('wrap').classList.toggle('roaming',value);
       endCarry();
       document.getElementById('careBubble').hidden=true;
@@ -366,6 +367,7 @@
       }
       document.getElementById('care').setAttribute('aria-label','Care for your '+definition.name);
       refreshCompanionName();
+      window.dispatchEvent(new Event('companion-character-changed'));
       input.title = definition.modes.includes('roaming')?'Type /walk to release your companion, or /home to bring it back':'Your panda keeps you company here. Walking is coming later.';
     }
     document.getElementById('cat').addEventListener('character-retry',()=>{if(['pomeranian','panda'].includes(selectedCharacter))selectSearchCharacter(selectedCharacter,true);});
@@ -400,7 +402,7 @@
       window.dispatchEvent(new CustomEvent('cat-drag', { detail: false }));
     }
     wrap.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('input, button')) return;
+      if (e.button !== 0 || e.target.closest('input, button, select, [data-activity-ui]')) return;
       drag = { id: e.pointerId, x: e.screenX, y: e.screenY };
       wrap.setPointerCapture(e.pointerId);
       window.dispatchEvent(new CustomEvent('cat-drag', { detail: true }));
@@ -485,8 +487,15 @@
       if (e.key === 'Escape') input.blur();
     });
     document.getElementById('go').addEventListener('click', submit);
-    api.onFocusInput(() => input.focus());
+    api.onFocusInput(() => {window.dispatchEvent(new Event('dock-focus-request'));input.focus();});
   </script>
-</body>
+<script src="companion-activities-core.js"></script><script src="companion-activities.js"></script><script>
+const activities=CompanionActivities.mountDock({root:document.getElementById('wrap'),pet:document.getElementById('cat'),input,getController:()=>catController,getPersonality:()=>currentPersonality,isRoaming:()=>catRoaming,relay:kind=>api.companionActivity(kind)});
+const resetActivities=()=>activities.resetTransient();window.addEventListener('companion-character-changed',resetActivities);window.addEventListener('companion-mode-changed',resetActivities);
+window.addEventListener('beforeunload',()=>{activities.destroy();window.removeEventListener('companion-character-changed',resetActivities);window.removeEventListener('companion-mode-changed',resetActivities);});
+</script><script src="dock-stow-ui.js"></script><script>
+const dockStowControl=DockStowUI.mount({root:document.getElementById('wrap'),getController:()=>catController,isRoaming:()=>catRoaming,request:value=>api.dockStow(value),subscribe:cb=>api.onDockStow(cb),onBefore:()=>activities.resetTransient()});
+window.addEventListener('beforeunload',()=>dockStowControl.destroy());
+</script></body>
 
 </html>

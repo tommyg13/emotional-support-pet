@@ -1,0 +1,17 @@
+#stowedPaw{box-sizing:border-box;position:fixed;inset:8px;width:56px;height:56px;border:1px solid #ead7c8;border-radius:23px;background:linear-gradient(145deg,#fff4e9,#e9d6c7);color:#a1819f;box-shadow:0 3px 8px #50372f30;cursor:pointer;display:grid;place-items:center;padding:12px;-webkit-app-region:no-drag}
+#stowedPaw[hidden]{display:none}#stowedPaw svg{width:30px;height:30px}#stowedPaw:focus-visible{outline:2px solid #9e7ca9;outline-offset:-4px}
+body.dock-stowed #wrap,body.dock-stowed #chat,body.dock-stowed #carriedCare{display:none!important}
+#stowPaws{display:none;position:absolute;right:15px;top:169px;z-index:7;pointer-events:none;color:#cba97e;gap:2px}#stowPaws svg{width:23px;height:23px;transform:rotate(90deg)}
+.dock-stow-push #stowPaws,.dock-stow-pull #stowPaws{display:flex}
+.dock-stow-busy #wrap{pointer-events:none}.dock-stow-busy #activityToggle{visibility:hidden}
+.dock-stow-push #cat{animation:buddyPush .7s ease-in-out forwards;transform-origin:65% 85%}
+.dock-stow-push #bar{animation:barFold .35s .3s ease-in forwards;transform-origin:right center}
+.dock-stow-pull #cat{animation:buddyPull .55s ease-out;transform-origin:65% 85%}
+.dock-stow-pull #bar{animation:barUnfold .55s ease-out;transform-origin:right center}
+@keyframes buddyPush{0%{transform:translate(0,0)}40%{transform:translate(45px,12px) rotate(7deg)}70%{transform:translate(58px,17px) rotate(9deg)}100%{transform:translate(70px,22px) scale(.93)}}
+@keyframes buddyPull{0%{transform:translate(70px,22px) scale(.93)}55%{transform:translate(25px,8px) rotate(-5deg)}100%{transform:translate(0,0)}}
+@keyframes barFold{from{transform:scaleX(1);opacity:1}to{transform:scaleX(.07);opacity:.25}}
+@keyframes barUnfold{from{transform:scaleX(.07);opacity:.25}to{transform:scaleX(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){.dock-stow-push #cat,.dock-stow-push #bar,.dock-stow-pull #cat,.dock-stow-pull #bar{animation:none}}
+
+.dock-stow-busy #cat,.dock-stow-busy #chat{pointer-events:none}

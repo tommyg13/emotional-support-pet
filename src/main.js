@@ -12,6 +12,8 @@ let safetyTimer = null;
 let dragStart = null;
 const roamingCat = require('./roaming-cat')({app,BrowserWindow,ipcMain,screen,getDockWindow:()=>dockWin,getPersonality:()=>loadSettings().catPersonality,getCharacter:()=>loadSettings().searchCharacter,preload:path.join(__dirname,'preload.js'),page:path.join(__dirname,'roaming-cat.html')});
 
+const dockStow = require('./dock-stow')({ipcMain,screen,getDockWindow:()=>dockWin,getExpandedHeight:width=>dockHeight(width)+(dockPanelOpen?330:0),isRoaming:()=>roamingCat.isRoaming()});
+
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
 const DEFAULTS = { searchCharacter: 'wizard-cat', characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', puppyName: '', pandaName: '', dockWidth: 560 };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -204,7 +206,7 @@ let dockPanelOpen = false;
 function dockWidth(value) { return Number.isFinite(value) ? Math.max(DOCK_MIN_W, Math.min(DOCK_W, Math.round(value))) : DOCK_W; }
 function dockHeight(width) { return Math.round(DOCK_H * width / DOCK_W); }
 function resizeDock(width) {
-  if (!dockWin || dockWin.isDestroyed()) return;
+  if (!dockWin || dockWin.isDestroyed() || dockWin.__dockStowed || dockWin.__dockStowTransition) return;
   width = dockWidth(width);
   const b = dockWin.getBounds(), wa = screen.getDisplayMatching(b).workArea;
   const height = Math.min(dockHeight(width) + (dockPanelOpen ? 330 : 0), wa.height);
@@ -215,7 +217,7 @@ ipcMain.on('dock-resize', (event, width) => {
   resizeDock(width);
 });
 ipcMain.on('dock-resize-end', event => {
-  if (!dockWin || dockWin.isDestroyed() || event.sender !== dockWin.webContents) return;
+  if (!dockWin || dockWin.isDestroyed() || dockWin.__dockStowed || dockWin.__dockStowTransition || event.sender !== dockWin.webContents) return;
   const b = dockWin.getBounds();
   saveSettings({ ...loadSettings(), dockWidth: b.width, dockPos: { x:b.x, y:b.y } });
 });
@@ -253,7 +255,7 @@ function createDock() {
   }
   dockWin.loadFile(path.join(__dirname, 'dock.html'));
   dockWin.on('moved', () => {
-    if (dockWin && !dockWin.isDestroyed()) {
+    if (dockWin && !dockWin.isDestroyed() && !dockWin.__dockStowed && !dockWin.__dockStowTransition) {
       const [x, y] = dockWin.getPosition();
       saveSettings({ ...loadSettings(), dockPos: { x, y } });
     }
@@ -285,6 +287,7 @@ function toggleSearchDock() {
 
 function focusSearchDock() {
   if (!dockWin || dockWin.isDestroyed()) return;
+  dockStow.restore();
   if (process.platform === 'darwin') app.focus({ steal: true });
   dockWin.show();
   dockWin.focus();
@@ -333,6 +336,7 @@ ipcMain.handle('ai-panel', (event, open) => {
   const b = dockWin.getBounds();
   const wa = screen.getDisplayMatching(b).workArea;
   dockPanelOpen = !!open;
+  if(dockWin.__dockStowed)return;
   const width = dockWidth(b.width);
   const height = Math.min(dockHeight(width) + (dockPanelOpen ? 330 : 0), wa.height);
   dockWin.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - height)), width, height });

@@ -75,7 +75,7 @@ async function dockFixture(aiEnabled=false, fail=false) {
     releaseCat:async()=>{submitted.push('walk');return true;},returnCat:async()=>{submitted.push('home');return true;},aiPanel:async()=>{}, aiStatus:async()=>({configured:true}), searchSubmit:q=>submitted.push(q),
     aiChat:async()=>{if(fail) throw Error('offline'); return {text:'ok',model:'test-model',usage:{}};}};
   const context=vm.createContext({api, document:{getElementById:get, createElement:()=>({scrollIntoView(){}})},
-    window:{addEventListener(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({cancelManualCare(){},playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
+    Event:class{constructor(type){this.type=type;}},window:{addEventListener(){},dispatchEvent(){}}, TypingCat:{yarnIcon:'',careIcons:{water:'',snack:''},mount:()=>({cancelManualCare(){},playYarn(){submitted.push('yarn');},giveCare(kind){submitted.push(kind);},destroy(){},setPersonality(){},queryReset(){resets++;},searchCompleted(){completed++;}})}});
   vm.runInContext(fs.readFileSync(path.join(sourceDir,'cat-name.js'),'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(sourceDir,'search-character.js'),'utf8'), context);
   const html=fs.readFileSync(path.join(sourceDir,'dock.html'),'utf8');
