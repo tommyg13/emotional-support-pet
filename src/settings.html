@@ -36,18 +36,19 @@
 </style>
 </head>
 <body>
-<h1>Choose your support buddy</h1>
-<p class="sub">Click one to pick it. The next press of the heart button brings it up.</p>
+<h1>Your pet &amp; little moments</h1>
+<p class="sub">One companion for your search, desktop adventures, and a little time together.</p>
 <nav class="tabs" role="tablist" aria-label="Settings sections">
-<button class="tab" role="tab" aria-selected="true" aria-controls="tab-pets" id="btn-pets" data-tab="pets">🐾 Pets</button>
+<button class="tab" role="tab" aria-selected="true" aria-controls="tab-pets" id="btn-pets" data-tab="pets">♡ Moments</button>
 <button class="tab" role="tab" aria-selected="false" aria-controls="tab-search" id="btn-search" data-tab="search">🔎 Search Pet</button>
 <button class="tab" role="tab" aria-selected="false" aria-controls="tab-ai" id="btn-ai" data-tab="ai">💬 AI</button>
 <button class="tab" role="tab" aria-selected="false" aria-controls="tab-dev" id="btn-dev" data-tab="dev" hidden>🛠 Developer</button>
 </nav>
-<section id="tab-pets" class="tab-panel" role="tabpanel" aria-labelledby="btn-pets"><div id="groups"></div>
-
-<div class="row"><label>Summon duration <b id="durLabel"></b> s <input id="dur" type="range" min="2" max="12" step="1"></label></div>
-<div class="row"><button class="act" id="test">Try it now</button><button class="act alt" id="folder">Open my characters folder</button></div>
+<section id="tab-pets" class="tab-panel" role="tabpanel" aria-labelledby="btn-pets">
+<h2>A moment together</h2><p class="sub">The heart opens a cozy scene with your selected search pet, a little larger and right beside you. Everything works offline.</p>
+<div class="row"><button class="act" data-support="breathe">Take a breath</button><button class="act alt" data-support="encourage">A little courage</button><button class="act alt" data-support="break">A tiny break</button></div>
+<p class="hint" style="margin-left:0">Three gentle breaths, a kind message, or a 20-second pause. You can stop or close the scene whenever you like. Ctrl/Cmd + Shift + H opens it too.</p>
+<div class="row"><button class="act alt" id="choosePet">Choose your pet →</button></div>
 </section>
 <section id="tab-ai" class="tab-panel" role="tabpanel" aria-labelledby="btn-ai" hidden><h2>AI chat</h2>
 <div style="display:grid;gap:10px;max-width:420px">
@@ -89,8 +90,6 @@
 <h3>Panda reactions</h3><p class="hint">Select Bamboo panda and enable the search dock first.</p><div class="row"><button class="act alt" data-panda="idle">Idle glance</button><button class="act alt" data-panda="welcome">Welcome back</button><button class="act alt" data-panda="water">Water</button><button class="act alt" data-panda="snack">Bamboo</button><button class="act alt" data-panda="play">Leaf play</button><button class="act alt" data-panda="sleep">Sleep</button><button class="act alt" data-panda="wake">Wake</button><button class="act alt" data-panda="blink">Blink</button></div>
 <p id="devStatus" class="hint" role="status"></p>
 </section>
-<script src="../node_modules/lottie-web/build/player/lottie.min.js"></script>
-<script src="characters.js"></script>
 <script src="cat-name.js"></script>
 <script>
 (async () => {
@@ -104,6 +103,8 @@
     }
   }
   tabs.forEach(tab => tab.onclick = () => activateTab(tab.dataset.tab));
+  document.querySelectorAll('[data-support]').forEach(button=>button.onclick=()=>api.openSupport(button.dataset.support));
+  document.getElementById('choosePet').onclick=()=>activateTab('search');
   if (await api.isDevMode()) {
     document.getElementById('btn-dev').hidden = false;
     document.querySelectorAll('[data-mood]').forEach(btn => btn.onclick = () => api.devCatAction('mood', btn.dataset.mood));
@@ -164,58 +165,6 @@
   };
   document.getElementById('removeAI').onclick = async () => { try { await api.aiSave(provider.value, ''); key.value = ''; await keyStatus(); } catch(e) { aiStatus.textContent = e.message; } };
   showSavedModel(); await keyStatus();
-  const custom = await api.listCustom();
-  const all = [...Characters.builtin, ...custom];
-  const groups = {};
-  all.forEach((c) => (groups[c.group] ||= []).push(c));
-  groups['Surprise me'] = [{ id: 'random', name: 'Random', type: 'dice' }];
-  const root = document.getElementById('groups');
-  let selected = settings.characterId;
-
-  function mark() {
-    document.querySelectorAll('.card').forEach((el) => el.classList.toggle('sel', el.dataset.id === selected));
-  }
-
-  const order = ['Cats', 'Lizards', 'More characters', 'My characters', 'Surprise me'];
-  for (const g of order) {
-    const h = document.createElement('h2');
-    h.textContent = g;
-    root.appendChild(h);
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-    root.appendChild(grid);
-    const list = groups[g] || [];
-    if (!list.length) {
-      if (g === 'More characters') { root.removeChild(h); root.removeChild(grid); continue; }
-      const e = document.createElement('div');
-      e.className = 'empty';
-      e.textContent = 'Nothing here yet. Add .gif, .png or Lottie .json files to your characters folder, then reopen this window.';
-      root.replaceChild(e, grid);
-      continue;
-    }
-    for (const c of list) {
-      const card = document.createElement('button');
-      card.className = 'card';
-      card.dataset.id = c.id;
-      const thumb = document.createElement('div');
-      thumb.className = 'thumb';
-      if (c.type === 'dice') { thumb.classList.add('dice'); thumb.textContent = '🎲'; }
-      else Characters.render(thumb, c);
-      const name = document.createElement('div');
-      name.className = 'name';
-      name.textContent = c.name;
-      card.append(thumb, name);
-      card.onclick = () => { selected = c.id; mark(); api.setSettings({ characterId: c.id }); };
-      grid.appendChild(card);
-    }
-  }
-  mark();
-
-  const dur = document.getElementById('dur'), lab = document.getElementById('durLabel');
-  dur.value = settings.duration; lab.textContent = settings.duration;
-  dur.oninput = () => { lab.textContent = dur.value; };
-  dur.onchange = () => api.setSettings({ duration: Number(dur.value) });
-
   const catName = document.getElementById('catName');
   function renderCompanionName() {
     const puppy = settings.searchCharacter === 'pomeranian', panda = settings.searchCharacter === 'panda';
@@ -267,8 +216,6 @@
   dockToggle.checked = !!settings.searchDock;
   dockToggle.onchange = () => api.setSettings({ searchDock: dockToggle.checked });
 
-  document.getElementById('test').onclick = () => api.summon(selected);
-  document.getElementById('folder').onclick = () => api.openCharactersFolder();
 })();
 </script>
 </body>

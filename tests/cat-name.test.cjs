@@ -6,7 +6,7 @@ test('names handle empty values, control characters, and Unicode length',()=>{
 });
 test('settings handler persists normalized name and notifies open dock and reminder',()=>{
  const main=fs.readFileSync(path.join(root,'main.js'),'utf8');
- const start=main.indexOf("ipcMain.handle('set-settings'");const end=main.indexOf("ipcMain.handle('list-custom'",start);
+ const start=main.indexOf("ipcMain.handle('set-settings'");const end=main.indexOf('// ---------- heart button controls ----------',start);
  let handler,saved;const events=[];const win={isDestroyed:()=>false,webContents:{send:(...args)=>events.push(args)}};
  const context=vm.createContext({CatName,ipcMain:{handle:(n,f)=>handler=f},loadSettings:()=>({catName:'',catPersonality:'calm',breakReminderEnabled:true}),saveSettings:s=>saved=s,dockWin:win,breakWin:win,closeBreakReminder(){},applySearchDock(){}});
  vm.runInContext(main.slice(start,end),context);handler({}, {catName:'  Mochi  '});
@@ -16,7 +16,7 @@ test('settings handler persists normalized name and notifies open dock and remin
 
 test('puppy name saves independently and only notifies the dock',()=>{
  const main=fs.readFileSync(path.join(root,'main.js'),'utf8');
- const start=main.indexOf("ipcMain.handle('set-settings'");const end=main.indexOf("ipcMain.handle('list-custom'",start);
+ const start=main.indexOf("ipcMain.handle('set-settings'");const end=main.indexOf('// ---------- heart button controls ----------',start);
  let handler;let saved={catName:'Mochi',puppyName:'',catPersonality:'calm',breakReminderEnabled:true};const events=[];
  const context=vm.createContext({CatName,ipcMain:{handle:(n,f)=>handler=f},loadSettings:()=>saved,saveSettings:s=>saved=s,dockWin:{isDestroyed:()=>false,webContents:{send:(...args)=>events.push(args)}},closeBreakReminder(){},applySearchDock(){}});
  vm.runInContext(main.slice(start,end),context);
@@ -25,7 +25,7 @@ test('puppy name saves independently and only notifies the dock',()=>{
 });
 
 test('panda selection and name persist without changing the other companions',()=>{
- const source=fs.readFileSync(path.join(root,'main.js'),'utf8'),start=source.indexOf("ipcMain.handle('set-settings'"),end=source.indexOf("ipcMain.handle('list-custom'",start);let handler,saved={searchCharacter:'wizard-cat',catName:'Mochi',puppyName:'Biscuit',pandaName:'',catPersonality:'calm',breakReminderEnabled:true};const events=[];let homes=0;
+ const source=fs.readFileSync(path.join(root,'main.js'),'utf8'),start=source.indexOf("ipcMain.handle('set-settings'"),end=source.indexOf('// ---------- heart button controls ----------',start);let handler,saved={searchCharacter:'wizard-cat',catName:'Mochi',puppyName:'Biscuit',pandaName:'',catPersonality:'calm',breakReminderEnabled:true};const events=[];let homes=0;
  const context=vm.createContext({CatName,ipcMain:{handle:(_n,f)=>handler=f},loadSettings:()=>saved,saveSettings:s=>saved=s,dockWin:{isDestroyed:()=>false,webContents:{send:(...args)=>events.push(args)}},roamingCat:{home:()=>homes++},closeBreakReminder(){},applySearchDock(){}});vm.runInContext(source.slice(start,end),context);
  handler({}, {searchCharacter:'panda',pandaName:'  Bao\n buddy  '});assert.equal(saved.searchCharacter,'panda');assert.equal(saved.pandaName,'Bao buddy');assert.equal(saved.catName,'Mochi');assert.equal(saved.puppyName,'Biscuit');assert.equal(homes,1);assert.deepEqual(events,[['search-character','panda'],['panda-name','Bao buddy']]);
  handler({}, {pandaName:''});assert.equal(saved.pandaName,'');assert.equal(saved.searchCharacter,'panda');handler({}, {searchCharacter:'/tmp/arbitrary.glb'});assert.equal(saved.searchCharacter,'wizard-cat');

@@ -4,15 +4,14 @@
     npm install
     npm start
 
-- Click the pink heart (drag it anywhere) -> your character peeks up from the bottom of the screen.
-- Right-click the heart -> "Choose character…", "Summon now", "Quit".
-- Global shortcut: Ctrl/Cmd + Shift + H.
+- Click the pink heart (drag it anywhere) to open **A moment together**, with a larger version of your selected pet.
+- Choose **Take a breath** (three gentle cycles), **A little courage** (a personality-based message), or **A tiny break** (20 seconds). Pause, resume, or close with Escape at any time.
+- Right-click the heart for **A moment together…**, **Pet settings…**, **Search dock**, updates, and Quit.
+- Ctrl/Cmd + Shift + H opens a moment; Ctrl/Cmd + Shift + S focuses search.
+- All pet scenes and activities work offline. AI chat remains optional.
 
-## Add your own characters
-Right-click heart -> Choose character… -> "Open my characters folder", drop in .gif / .png / .webp / .svg / Lottie .json.
-Folder location:
-- macOS:   ~/Library/Application Support/Emotional Support Pet/characters
-- Windows: %APPDATA%\Emotional Support Pet\characters
+## Choose your pet
+Open **Pet settings… → Search Pet** and choose Wizard cat, Pomeranian, or Bamboo panda. The same selection and individual name are used for search, desktop walks, and support scenes. The old summon gallery and custom-character import have been retired; existing personal character files in app data are left untouched.
 
 ## Build installers
     npm install
@@ -27,9 +26,6 @@ The .dmg is intentionally not signed with a Developer ID. Friends: drag the app 
 right-click -> Open (first time only). If macOS says it is damaged, run in Terminal:
     xattr -cr "/Applications/Emotional Support Pet.app"
 
-## Built-in extra characters
-Drop files into `src/characters/` (gif/png/webp/svg/Lottie json) and rebuild the installer; they ship with the app under "More characters".
-
 ## Updates (GitHub Releases, public repo)
 One-time setup:
 1. Create a PUBLIC GitHub repo and put its owner name in src/update-config.json (owner, and repo name if different).
@@ -43,7 +39,12 @@ Release a new version:
 - macOS (unsigned): the app tells the user a new version exists and opens the download page; they replace the app with the new .dmg.
 - Right-click the heart -> "Check for updates…" to check manually.
 
-## Search dock (cat + search bar)
-Toggle it in "Choose character…" -> Extras, or right-click the heart -> "Search dock". Enter opens a Google search in the browser.
-To use your own cat image, save it as `src/assets/search-cat.webp` (otherwise a built-in drawn cat is shown).
+## Search dock
+Toggle it in **Pet settings… → Search Pet**, or right-click the heart → **Search dock**. Enter opens a web search. Feed or play with your pet, release it for a desktop walk, or open ✦ for focus, hide-and-seek, gifts, and pack-away search.
+
+## Checks
+    node --test
+    npm run check:support
+    npm run check:activities
+    npm run check:dock-stow
 

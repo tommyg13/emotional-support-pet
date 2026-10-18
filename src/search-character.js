@@ -1,4 +1,4 @@
-/* Search companions are separate from the summon/gallery Characters registry.
+/* Shared predefined companions for the search dock, roaming, and support scenes.
  * Only predefined entries can be mounted. Renderers own animation and cleanup;
  * this controller owns the common action contract. No asset URLs from settings.
  */

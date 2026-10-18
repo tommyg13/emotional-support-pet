@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="support-moment.css"><title>A moment together</title></head><body>
+<main id="moment" aria-labelledby="title">
+<header><span class="eyebrow">♡ A LITTLE TIME TOGETHER</span><button id="close" aria-label="Close support scene" title="Close · Escape">×</button><h1 id="title">A moment together</h1><p id="companionLabel">Your companion is here.</p></header>
+<nav id="choices" aria-label="Choose a moment"><button data-mode="breathe" aria-pressed="true">Take a breath</button><button data-mode="encourage" aria-pressed="false">A little courage</button><button data-mode="break" aria-pressed="false">A tiny break</button></nav>
+<div id="scene"><div id="glow" aria-hidden="true"></div><span class="spark one" aria-hidden="true">✧</span><span class="spark two" aria-hidden="true">✧</span><div id="petBreath"><div id="pet" aria-label="Your support pet"></div></div><p id="loading" role="status">Your companion is on the way…</p></div>
+<section id="words" aria-label="Your moment"><h2 id="instruction">Take a breath</h2><p id="message" role="status" aria-live="polite">Three gentle breaths, at your own pace.</p><div id="timing" hidden><span id="counter" aria-live="off"></span><progress id="progress" max="1" value="0" aria-label="Moment progress"></progress></div></section>
+<footer><div id="actions"><button id="start" disabled>Take three breaths</button><button id="pause" hidden>Pause</button><button id="retry" hidden>Try loading again</button></div><p id="hint">No rush. You can close this whenever you like.</p></footer>
+</main><input id="petInput" hidden tabindex="-1" aria-hidden="true">
+<script src="typing-cat.js"></script><script src="companion-life.js"></script><script src="companion-interaction.js"></script><script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script><script src="panda.js"></script><script src="search-character.js"></script><script src="cat-name.js"></script><script src="support-moment-core.js"></script><script src="support-moment-ui.js"></script>
+<script>
+const supportMoment=SupportMomentUI.mount({root:document.getElementById('moment'),onClose:()=>api.closeSupport()});
+const unsubscribeSupport=api.onSupportOpen(payload=>supportMoment.open(payload));
+window.addEventListener('beforeunload',()=>{unsubscribeSupport();supportMoment.destroy();});
+api.supportReady();
+</script></body></html>

@@ -3,7 +3,7 @@ const root=path.join(__dirname,'../src');
 function fixture(){let bounds={x:100,y:200,width:560,height:270},saved;const handlers={};const sender={};const dockWin={webContents:sender,isDestroyed:()=>false,getBounds:()=>({...bounds}),setBounds:b=>{bounds=b;}};
  const source=fs.readFileSync(path.join(root,'main.js'),'utf8');const context=vm.createContext({dockWin,ipcMain:{on:(n,f)=>handlers[n]=f,handle:(n,f)=>handlers[n]=f},screen:{getDisplayMatching:()=>({workArea:{x:0,y:0,width:1440,height:900}})},loadSettings:()=>({catName:'Mochi'}),saveSettings:s=>saved=s});
  vm.runInContext(source.slice(source.indexOf('const DOCK_W ='),source.indexOf('const SEARCH_URL =')),context);
- const start=source.indexOf("ipcMain.handle('ai-panel'");vm.runInContext(source.slice(start,source.indexOf('// ---------- summon',start)),context);
+ const start=source.indexOf("ipcMain.handle('ai-panel'");vm.runInContext(source.slice(start,source.indexOf('// ---------- IPC ----------',start)),context);
  return {bounds:()=>bounds,resize:w=>handlers['dock-resize']({sender},w),end:()=>handlers['dock-resize-end']({sender}),panel:open=>handlers['ai-panel']({sender},open),saved:()=>saved,unauthorized:()=>handlers['dock-resize']({sender:{}},400)};
 }
 test('dock clamps width, preserves bottom edge, saves size and rejects invalid requests',()=>{

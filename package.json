@@ -1,7 +1,7 @@
 {
   "name": "emotional-support-pet",
   "version": "0.1.18",
-  "description": "A floating emotional support button that summons a big cat or lizard",
+  "description": "An offline desktop companion for search, play, and little moments of support",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -24,11 +24,11 @@
     "check:panda-roaming": "electron scripts/check-panda-roaming.cjs",
     "check:panda-motion": "electron scripts/check-panda-motion.cjs",
     "check:activities": "electron scripts/check-companion-activities.cjs",
-    "check:dock-stow": "electron scripts/check-dock-stow.cjs"
+    "check:dock-stow": "electron scripts/check-dock-stow.cjs",
+    "check:support": "electron scripts/check-support-moment.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
-    "lottie-web": "^5.12.2",
     "three": "0.180.0",
     "uiohook-napi": "^1.5.5"
   },

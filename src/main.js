@@ -3,21 +3,17 @@ const path = require('path');
 const fs = require('fs');
 const ai = require('./ai');
 const CatName = require('./cat-name');
-const { pathToFileURL } = require('url');
 
-let btnWin, overlayWin, settingsWin, dockWin, breakWin;
+let btnWin, settingsWin, dockWin, breakWin;
 let activeSeconds = 0, snoozeUntil = 0, lastBreakTick = Date.now();
-let playing = false;
-let safetyTimer = null;
 let dragStart = null;
 const roamingCat = require('./roaming-cat')({app,BrowserWindow,ipcMain,screen,getDockWindow:()=>dockWin,getPersonality:()=>loadSettings().catPersonality,getCharacter:()=>loadSettings().searchCharacter,preload:path.join(__dirname,'preload.js'),page:path.join(__dirname,'roaming-cat.html')});
 
 const dockStow = require('./dock-stow')({ipcMain,screen,getDockWindow:()=>dockWin,getExpandedHeight:width=>dockHeight(width)+(dockPanelOpen?330:0),isRoaming:()=>roamingCat.isRoaming()});
 
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
-const DEFAULTS = { searchCharacter: 'wizard-cat', characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', puppyName: '', pandaName: '', dockWidth: 560 };
+const DEFAULTS = { searchCharacter: 'wizard-cat', searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', puppyName: '', pandaName: '', dockWidth: 560 };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
-const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
 function loadSettings() {
   try {
@@ -89,73 +85,11 @@ ipcMain.handle('dev-cat-action', (event, action, value) => {
   else return false;
   return true;
 });
-// ---------- custom characters (gif / png / svg / lottie json) ----------
-function ensureCharsDir() {
-  fs.mkdirSync(charsDir(), { recursive: true });
-  const readme = path.join(charsDir(), 'README.txt');
-  if (!fs.existsSync(readme)) {
-    fs.writeFileSync(
-      readme,
-      'Drop your own characters here: .gif .png .webp .svg or Lottie .json files.\n' +
-        'Then reopen "Choose character" - they appear under "My characters".\n' +
-        'Tip: use transparent backgrounds, roughly square images, character at the bottom.\n'
-    );
-  }
-}
-
-function scanDir(dir, idPrefix, group) {
-  const out = [];
-  if (!fs.existsSync(dir)) return out;
-  for (const file of fs.readdirSync(dir).sort()) {
-    const full = path.join(dir, file);
-    const ext = path.extname(file).toLowerCase();
-    const name = path.basename(file, ext);
-    const id = idPrefix + file;
-    if (['.gif', '.png', '.webp', '.svg', '.jpg', '.jpeg'].includes(ext)) {
-      out.push({ id, name, group, type: 'image', url: pathToFileURL(full).href });
-    } else if (ext === '.json') {
-      try {
-        const data = JSON.parse(fs.readFileSync(full, 'utf8'));
-        if (data && data.layers) out.push({ id, name, group, type: 'lottie', data });
-      } catch (e) {
-        console.warn('Bad lottie file', file, e.message);
-      }
-    }
-  }
-  return out;
-}
-
-function listCustom() {
-  ensureCharsDir();
-  return [
-    ...scanDir(path.join(__dirname, 'characters'), 'bundled:', 'More characters'), // ships with the app
-    ...scanDir(charsDir(), 'custom:', 'My characters'), // user's own folder
-  ];
-}
-
 // ---------- windows ----------
-function createOverlay() {
-  overlayWin = new BrowserWindow({
-    show: false,
-    frame: false,
-    transparent: true,
-    hasShadow: false,
-    resizable: false,
-    movable: false,
-    focusable: false,
-    skipTaskbar: true,
-    fullscreenable: false,
-    alwaysOnTop: true,
-    backgroundColor: '#00000000',
-    webPreferences: { preload: path.join(__dirname, 'preload.js') },
-  });
-  overlayWin.setAlwaysOnTop(true, 'screen-saver');
-  if (process.platform === 'darwin') {
-    overlayWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
-  }
-  overlayWin.setIgnoreMouseEvents(true);
-  overlayWin.loadFile(path.join(__dirname, 'overlay.html'));
-}
+const supportMoment = require('./support-moment-window')({
+  BrowserWindow, ipcMain, screen, getButton:()=>btnWin, getSettingsWindow:()=>settingsWin,
+  getSettings:loadSettings, preload:path.join(__dirname,'preload.js'), page:path.join(__dirname,'support-moment.html')
+});
 
 function createButton() {
   const wa = screen.getPrimaryDisplay().workArea;
@@ -191,7 +125,7 @@ function openSettings() {
   settingsWin = new BrowserWindow({
     width: 620,
     height: 720,
-    title: 'Choose your support buddy',
+    title: 'Your pet & little moments',
     backgroundColor: '#fff7f2',
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
@@ -342,31 +276,8 @@ ipcMain.handle('ai-panel', (event, open) => {
   dockWin.setBounds({ x: b.x, y: Math.max(wa.y, Math.min(b.y, wa.y + wa.height - height)), width, height });
 });
 
-// ---------- summon ----------
-function finishPlayback() {
-  clearTimeout(safetyTimer);
-  playing = false;
-  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.hide();
-}
-
-function summon(characterId) {
-  if (playing || !overlayWin) return;
-  playing = true;
-  const s = loadSettings();
-  const display = screen.getDisplayMatching(btnWin.getBounds());
-  overlayWin.setBounds(display.bounds);
-  overlayWin.showInactive();
-  overlayWin.webContents.send('play', {
-    characterId: characterId || s.characterId,
-    duration: s.duration,
-  });
-  safetyTimer = setTimeout(finishPlayback, (s.duration + 6) * 1000);
-}
-
 // ---------- IPC ----------
 ipcMain.on('break-dismiss', (event, snooze) => { if (breakWin && event.sender === breakWin.webContents) closeBreakReminder(snooze !== false); });
-ipcMain.on('summon', (_e, id) => summon(id));
-ipcMain.on('overlay-done', finishPlayback);
 ipcMain.handle('get-settings', () => loadSettings());
 ipcMain.handle('set-settings', (_e, patch) => {
   const next = { ...loadSettings(), ...patch };
@@ -392,12 +303,7 @@ ipcMain.handle('set-settings', (_e, patch) => {
   if ('searchDock' in patch) applySearchDock();
   return next;
 });
-ipcMain.handle('list-custom', () => listCustom());
-ipcMain.on('open-characters-folder', () => {
-  ensureCharsDir();
-  shell.openPath(charsDir());
-});
-
+// ---------- heart button controls ----------
 ipcMain.on('drag-start', () => {
   const [x, y] = btnWin.getPosition();
   dragStart = { x, y };
@@ -408,8 +314,8 @@ ipcMain.on('drag-move', (_e, { dx, dy }) => {
 
 ipcMain.on('button-menu', () => {
   Menu.buildFromTemplate([
-    { label: 'Summon now', click: () => summon() },
-    { label: 'Choose character…', click: openSettings },
+    { label: 'A moment together…', click: () => supportMoment.open() },
+    { label: 'Pet settings…', click: openSettings },
     { label: 'Search dock', type: 'checkbox', checked: loadSettings().searchDock, click: toggleSearchDock },
     { type: 'separator' },
     { label: `Check for updates… (v${app.getVersion()})`, click: () => checkForUpdates(true) },
@@ -494,10 +400,8 @@ async function checkForUpdates(manual = false) {
 
 // ---------- lifecycle ----------
 app.whenReady().then(() => {
-  ensureCharsDir();
-  createOverlay();
   createButton();
-  globalShortcut.register('CommandOrControl+Shift+H', () => summon());
+  globalShortcut.register('CommandOrControl+Shift+H', () => supportMoment.open());
   globalShortcut.register('CommandOrControl+Shift+S', focusSearchDock);
   applySearchDock();
   setTimeout(() => checkForUpdates(false), 5000);

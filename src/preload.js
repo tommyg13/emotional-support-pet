@@ -9,16 +9,16 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('break-start-stretch', listener);
   },
   dismissBreak: (snooze = true) => ipcRenderer.send('break-dismiss', snooze),
-  summon: (id) => ipcRenderer.send('summon', id),
+  openSupport: (mode) => ipcRenderer.send('support-open', mode),
+  supportReady: () => ipcRenderer.send('support-ready'),
+  closeSupport: () => ipcRenderer.send('support-close'),
+  onSupportOpen: cb => {const fn=(_e,data)=>cb(data);ipcRenderer.on('support-open',fn);return()=>ipcRenderer.removeListener('support-open',fn);},
   dragStart: () => ipcRenderer.send('drag-start'),
   dragMove: (dx, dy) => ipcRenderer.send('drag-move', { dx, dy }),
   buttonMenu: () => ipcRenderer.send('button-menu'),
   onSearchCharacter: cb => {const fn=(_e,id)=>cb(id);ipcRenderer.on('search-character',fn);return()=>ipcRenderer.removeListener('search-character',fn);},
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSettings: (patch) => ipcRenderer.invoke('set-settings', patch),
-  listCustom: () => ipcRenderer.invoke('list-custom'),
-  openCharactersFolder: () => ipcRenderer.send('open-characters-folder'),
-  overlayDone: () => ipcRenderer.send('overlay-done'),
   aiModels: (provider) => ipcRenderer.invoke('ai-models', provider),
   aiStatus: (provider) => ipcRenderer.invoke('ai-status', provider),
   aiSave: (provider, key) => ipcRenderer.invoke('ai-save', provider, key),
@@ -84,5 +84,4 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('dock-cursor', listener);
   },
   onFocusInput: (cb) => ipcRenderer.on('focus-input', () => cb()),
-  onPlay: (cb) => ipcRenderer.on('play', (_e, data) => cb(data)),
 });

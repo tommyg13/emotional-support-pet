@@ -1,8 +1,7 @@
 # Search characters
 
 `src/search-character.js` contains the predefined search companion registry and
-`CharacterController`. It is separate from `src/characters.js`, which serves the
-existing summon/gallery feature.
+`CharacterController`. This registry is shared by the search dock, desktop roaming, and the larger support-moment scene. The legacy summon/gallery renderer has been removed.
 
 Mount with `SearchCharacters.mount(id, mode, container, options)`. Only registered
 IDs and modes are accepted. The wizard cat supplies `docked` and `roaming`
@@ -39,8 +38,7 @@ cat tests continue to cover SVG reactions and dock controls.
 ## Pomeranian
 
 The `pomeranian` preset uses the `Pomeranian` renderer and a `RoamingDog` desktop adapter. Choose it in
-Settings → Search character. This choice is separate from the summon/gallery
-character. Switching closes any roaming companion and remounts the dock renderer.
+Settings → Search Pet → Search character. The same selection is used by the heart’s support scene. Switching closes any roaming companion and remounts the dock renderer.
 The main process validates the choice and authorizes roaming only for the two predefined companions.
 
 The source GLB came from the user's Downloads archive
@@ -294,3 +292,13 @@ Activities → Pack away search first removes care items, walks the companion to
 `dock-stow-ui.js` owns the sack presentation and recovery button. The 3D companions reuse their skeletal walking/heading controls; the SVG cat temporarily uses its roaming renderer inside dock bounds. These temporary poses and actors are cleaned up on completion, cancellation or character changes. During restore, the search and care items return first, followed by a vertical pet jump without rotation. A completed unpack shows a short random personality message; interruption skips it, and existing activity/care messages take priority. Bubbles expire or clear on typing and interaction. Reduced motion skips staging animation. Hidden dock renderers pause through their existing CSS visibility checks. Focus countdowns continue while compact, with completion held until the dock has restored. A focus shortcut or Escape cancels pending push staging. The compact flag is not persisted across app restarts. No other application window is resized.
 
 `check:dock-stow` exercises the real native window with all companions and both dock widths, exact restoration, AI-panel changes while compact, renderer reload, shortcut-style native restoration, Escape/reduced motion and deferred focus completion. Unit checks cover sender validation, idempotence, current panel height, roaming exclusion and negative display origins.
+
+## Support moments
+
+The heart, its menu, Ctrl/Cmd + Shift + H, and Settings → Moments open `support-moment.html`. `support-moment-window.js` creates a small, focusable, closable window inside the heart’s display work area. It waits for an authorized renderer-ready handshake before showing the selected pet. Heart/settings requests and scene close events validate their sender. Reopening an active scene from the heart focuses it without restarting a session; an explicit settings choice starts that mode. Closing destroys the window and its GPU surface. A support scene does not change the dock, compact state, roaming pet, or persistent selection.
+
+`support-moment-core.js` provides a clock-based session: three 4-second inhale / 6-second exhale cycles, a 6.5-second personality encouragement, or a 20-second break. Sessions start on demand, support pause/resume, cancel when switching modes, and complete only once. Hidden scenes pause automatically. Text invites the user to follow their own pace. Reduced motion removes the expanding ring and pet scale.
+
+`support-moment-ui.js` mounts the existing predefined dock renderer at a larger size, applies that companion’s name and personality, and destroys it on close or replacement. Loading failures have a retry action. Escape and the close button work while loading too. All text is local and names use textContent. There is no chat, file access, or network dependency in the scene.
+
+The former character registry, gallery assets and Lottie dependency are removed. The still-used stretch reminder image lives at `src/assets/stretch-cat.webp`; previously imported files in user data are never deleted. `npm run check:support` covers real Electron rendering for every pet and activity, pause/completion/cancellation, settings entry, cleanup, reduced motion, and compact display layout.

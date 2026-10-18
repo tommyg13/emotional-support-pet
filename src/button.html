@@ -21,7 +21,7 @@
 </style>
 </head>
 <body>
-<button id="b" title="Emotional support (right-click for options)">
+<button id="b" title="A moment together (right-click for options)">
   <svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.8-8 11-8 11z"/></svg>
 </button>
 <script>
@@ -43,7 +43,7 @@
   b.addEventListener('pointerup', () => {
     if (!start) return;
     start = null;
-    if (!moved) api.summon();
+    if (!moved) api.openSupport();
   });
   b.addEventListener('contextmenu', (e) => { e.preventDefault(); api.buttonMenu(); });
 </script>
