@@ -29,7 +29,7 @@
   }
   const actionNames = ['walkTo', 'runTo', 'sit', 'sleep', 'wake', 'lookAt', 'stop',
     'jump', 'setSpeed', 'setPosition', 'getPosition', 'getPose', 'isHeld', 'drop',
-    'setName', 'setPersonality', 'react', 'searchCompleted', 'queryReset', 'giveCare', 'play',
+    'setName', 'setPersonality', 'blink', 'react', 'searchCompleted', 'queryReset', 'giveCare', 'play',
     'beginManualCare', 'updateManualCare', 'cancelManualCare'];
   for (const name of actionNames) {
     Object.defineProperty(CharacterController.prototype, name, {
@@ -93,7 +93,7 @@
     const engine = typeof Pomeranian !== 'undefined' ? Pomeranian : root.Pomeranian;
     const renderer = engine.mount(container, options);
     const actions = {};
-    for (const name of ['sit', 'sleep', 'wake', 'setName', 'setPersonality', 'searchCompleted', 'queryReset', 'giveCare', 'play', 'react', 'getPose', 'beginManualCare', 'updateManualCare', 'cancelManualCare']) {
+    for (const name of ['blink', 'sit', 'sleep', 'wake', 'setName', 'setPersonality', 'searchCompleted', 'queryReset', 'giveCare', 'play', 'react', 'getPose', 'beginManualCare', 'updateManualCare', 'cancelManualCare']) {
       actions[name] = (...args) => renderer[name](...args);
     }
     return {renderer, actions, icons: {care: engine.careIcons, toy: engine.toyIcon}};

@@ -16,7 +16,10 @@
     "check:pomeranian-recovery": "electron scripts/check-pomeranian-recovery.cjs",
     "check:pomeranian-roaming": "electron scripts/check-pomeranian-roaming.cjs",
     "check:pomeranian-gait": "electron scripts/check-pomeranian-gait.cjs",
-    "check:pomeranian-rest": "electron scripts/check-pomeranian-rest.cjs"
+    "check:pomeranian-rest": "electron scripts/check-pomeranian-rest.cjs",
+    "check:pomeranian-pickup": "electron scripts/check-pomeranian-pickup.cjs",
+    "check:pomeranian-life": "electron scripts/check-pomeranian-life.cjs",
+    "check:pomeranian-interaction": "electron scripts/check-pomeranian-interaction.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

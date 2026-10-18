@@ -1,0 +1,10 @@
+{
+  "Pickup": {
+    "max_edge_stretch": 1.698,
+    "min_z": -0.0274
+  },
+  "Land": {
+    "max_edge_stretch": 1.292,
+    "min_z": 0.0
+  }
+}

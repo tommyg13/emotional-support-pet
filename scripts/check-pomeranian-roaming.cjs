@@ -59,6 +59,12 @@ app.whenReady().then(async()=>{
   await run("document.querySelector('canvas').getContext('webgl2').getExtension('WEBGL_lose_context').loseContext()");await wait(150);
   await handlers['cat-home']({sender:dock.webContents});await wait(150);assert.equal(roam.isDestroyed(),true);
   
+  // A second display with a negative origin uses local screen coordinates, and disconnect safely returns home.
+  screen.getDisplayMatching=()=>({workArea:{x:-900,y:0,width:900,height:650}});
+  assert.equal(await handlers['cat-release']({sender:dock.webContents}),true);await run('cat.ready');await run('clearTimeout(firstWalk)');
+  assert.ok(roam.getBounds().x<0);await run('cat.setPosition(400,350)');click({x:roam.getBounds().x+600,y:roam.getBounds().y+450});await wait(150);assert.equal(await run('cat.getPose()'),'walking');
+  const disconnected=roam;screen.emit('display-removed');await wait(120);assert.equal(disconnected.isDestroyed(),true);assert.equal(await dock.webContents.executeJavaScript('catRoaming'),false);
+  screen.getDisplayMatching=()=>({workArea:{x:0,y:0,width:900,height:650}});
   // The shared page still mounts and moves the original SVG cat.
   settings.searchCharacter='wizard-cat';assert.equal(await handlers['cat-release']({sender:dock.webContents}),true);
   await run('clearTimeout(firstWalk)');assert.equal(await run('character'),'wizard-cat');assert.equal(await run("document.querySelectorAll('canvas').length"),0);

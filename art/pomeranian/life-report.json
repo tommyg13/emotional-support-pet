@@ -1,0 +1,25 @@
+{
+  "eye_vertices": [
+    331,
+    327
+  ],
+  "max_breath_displacement": 0.005102,
+  "eye_centers": [
+    [
+      -0.112,
+      -0.322,
+      0.725
+    ],
+    [
+      0.021,
+      -0.351,
+      0.727
+    ]
+  ],
+  "morphs": [
+    "Blink",
+    "Breath"
+  ],
+  "asset_bytes": 5072868,
+  "breath_normal_deltas": false
+}

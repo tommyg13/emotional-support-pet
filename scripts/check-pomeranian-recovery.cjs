@@ -20,6 +20,15 @@ app.whenReady().then(async()=>{
   assert.equal(await run('catController.element.dataset.state'),'error');assert.equal(await run('catController.giveCare("water")'),false);
   assert.equal(await run("document.getElementById('yarnBubble').hidden"),true);await retry();
   await run("selectSearchCharacter('wizard-cat')");assert.equal(await run("document.querySelectorAll('#cat canvas').length"),0);
-  clearTimeout(watchdog);console.log('Blocked model recovery, real graphics-context loss, retry, preserved name and cat switching passed.');w.destroy();app.quit();
+  for(const character of ['wizard-cat','pomeranian','wizard-cat','pomeranian']){
+   await run(`selectSearchCharacter('${character}');void 0;`);await run('catController.ready');
+   for(const width of [400,480,560]){
+    w.setContentSize(width,Math.round(270*width/560));await wait(100);
+    const layout=await run(`(()=>{const cat=document.getElementById('cat').getBoundingClientRect(),input=document.querySelector('input').getBoundingClientRect();return {cat:{left:cat.left,right:cat.right,top:cat.top,bottom:cat.bottom},input:{left:input.left,right:input.right},width:innerWidth,height:innerHeight,canvases:document.querySelectorAll('#cat canvas').length};})()`);
+    assert.ok(layout.cat.left>=0&&layout.cat.right<=layout.width+1);assert.ok(layout.cat.top>=-8*layout.width/560-1&&layout.cat.bottom<=layout.height+1);assert.ok(layout.input.left>=0&&layout.input.right<=layout.width+1);
+    assert.equal(layout.canvases,character==='pomeranian'?1:0);
+   }
+  }
+  clearTimeout(watchdog);console.log('Blocked model recovery, real graphics-context loss, retry, preserved name and repeated character switching at minimum/intermediate/maximum dock widths passed.');w.destroy();app.quit();
  }catch(error){console.error(error);app.exit(1);}
 });

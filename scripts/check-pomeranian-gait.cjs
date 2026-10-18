@@ -10,7 +10,7 @@ app.whenReady().then(async()=>{
  function changed(a,b,top,bottom){let n=0;for(let y=top;y<bottom;y++)for(let x=0;x<300;x++){const i=(y*300+x)*4;if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])+Math.abs(a[i+3]-b[i+3])>50)n++;}return n;}
  try{
   await w.loadFile(path.join(__dirname,'../previews/pomeranian-studio.html'));await run('preview.ready');
-  await run("preview.destroy();document.body.replaceChildren();document.body.style.background='transparent';window.testPet=document.createElement('div');testPet.style.cssText='position:absolute;left:50px;top:40px;width:300px;height:300px';document.body.appendChild(testPet);window.subject=Pomeranian.mount(testPet);void 0;");assert.equal(await run('subject.ready'),true);
+  await run("preview.destroy();document.body.replaceChildren();document.body.style.background='transparent';window.testPet=document.createElement('div');testPet.style.cssText='position:absolute;left:50px;top:40px;width:300px;height:300px';document.body.appendChild(testPet);window.subject=Pomeranian.mount(testPet,{lifePolicy:{sample:()=>({blink:0,breath:0,fast:false}),blink:()=>false,pause(){},setPersonality(){},destroy(){}}});void 0;");assert.equal(await run('subject.ready'),true);
   assert.equal(await run('subject.setHeading(1,0)'),true);await wait(1200);const right=await capture('face-right');
   assert.equal(await run('subject.setHeading(-1,0)'),true);await wait(1200);const left=await capture('face-left');
   assert.ok(headCenter(right)>headCenter(left)+35,'head visibly changes sides when the body turns');

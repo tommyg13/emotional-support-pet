@@ -9,7 +9,9 @@ app.whenReady().then(async()=>{
  return (await w.webContents.capturePage(r)).toBitmap();};
  const diff=(a,b)=>{let n=0;for(let i=0;i<a.length;i++)if(Math.abs(a[i]-b[i])>3)n++;return n;};
  try{
- await w.loadFile(path.join(__dirname,'../previews/pomeranian-studio.html'));await run('preview.ready');await wait(400);
+ await w.loadFile(path.join(__dirname,'../previews/pomeranian-studio.html'));await run('preview.ready');
+ // Facial motion is checked separately; isolate head/paw pixel stability here.
+ await run("preview.destroy();preview=SearchCharacters.mount('pomeranian','docked',document.getElementById('pet'),{input:search,lifePolicy:{sample:()=>({blink:0,breath:0,fast:false}),blink:()=>false,pause(){},setPersonality(){},destroy(){}}});void 0;");await run('preview.ready');await wait(400);
  const feet=await cap('feet'),head=await cap('head');
  await run("window.dispatchEvent(new PointerEvent('pointermove',{clientX:650,clientY:130}))");await wait(1000);
  const headRight=await cap('head'),rightFeet=await cap('feet');

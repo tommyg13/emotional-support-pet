@@ -7,7 +7,7 @@ const Pomeranian = (() => {
     snack: svg('<path d="M18 23c-12-12-20 8-9 12-5 12 12 18 16 7l15-15c11 4 17-13 5-16-4-11-23-3-12 9Z" fill="#EACDA1" stroke="#B58D62" stroke-width="3"/>')
   };
   const toyIcon = svg('<circle cx="32" cy="32" r="23" fill="#F3978F" stroke="#BD6563" stroke-width="3"/><path d="M12 20q25 1 35 30M21 11q0 25 30 34" fill="none" stroke="#FFF0DC" stroke-width="4"/>');
-  function mount(container, {input,idlePolicy,restPolicy} = {}) {
+  function mount(container, {input,idlePolicy,restPolicy,lifePolicy} = {}) {
     const host = document.createElement('div');
     host.style.cssText = 'position:relative;width:100%;height:100%;';
     const status = document.createElement('div');
@@ -23,6 +23,8 @@ const Pomeranian = (() => {
     let quoteKind=null,quoteEpoch=0;
     const idle=idlePolicy||CompanionIdle.create();
     const restPolicyState=restPolicy||CompanionRest.create();
+    const life=lifePolicy||CompanionLife.create();
+    const faceMeshes=[];let faceApplied={blink:0,breath:0},lastFaceDraw=0;
     let posture=null,wakeTimer=null,wakeResolve=null,wakeActionId=0;
     const postureActions=new Map();
     let manualCare=null,delivery=null,quoteTimer=null,mouthAnchor,mouthRight,projected,projectedRight;
@@ -41,10 +43,11 @@ const Pomeranian = (() => {
     }
     const onContextLost=event=>{event.preventDefault();fail(new Error('Graphics context lost'));};
 
+    const battingBones=[];let pawApplied=false;
     let ballSession=null,ball,ballShadow,ballProjection,ballPoint=null;
     let dirty=true;
     let failed=false;
-    let alive=true,raf=0,view,scene,model,camera,observer,visible=!document.hidden;
+    let alive=true,raf=0,view,scene,model,camera,observer,visible=!document.hidden,surfaceVisible=true;
     let companionName='';
     let effect=null,last=0,yaw=0,pitch=0,personality='calm',mixer,assetRoot,activeAction;
     let pointer=null,searchLookUntil=0,nextSearchLook=0,head,headRest,headBase,yawAxis,pitchAxis,turn,nod;
@@ -76,7 +79,7 @@ const Pomeranian = (() => {
       restPolicyState.activity();
       if(!posture)return Promise.resolve(true);
       if(posture.kind==='waking')return posture.promise;
-      const action=posture.action;
+      const action=posture.action;clearTimeout(wakeTimer);wakeTimer=null;
       if(reduced){action.stop();posture=null;dirty=true;return Promise.resolve(true);}
       action.fadeOut(.45);dirty=true;
       const promise=new Promise(resolve=>wakeResolve=resolve);posture={kind:'waking',action,promise};
@@ -87,16 +90,40 @@ const Pomeranian = (() => {
       if(!posture)return false;
       const id=++wakeActionId;wake().then(ok=>{if(ok&&alive&&id===wakeActionId)callback();});return true;
     }
+    function pickUp(){
+      if(!alive||failed||!model)return false;
+      if(posture&&['sit','sleep','waking'].includes(posture.kind))return deferWake(pickUp);
+      cancelPlay();cancelManualCare();cancelDelivery();setLocomotion('idle');
+      return restPose('pickup');
+    }
+    function releasePickup(cancelled=false){
+      wakeActionId++;
+      if(!posture||posture.kind!=='pickup')return false;
+      restPolicyState.activity();
+      if(cancelled||reduced){wake();return true;}
+      const action=postureActions.get('Land');if(!action){wake();return false;}
+      const previous=posture.action;action.reset().play().setEffectiveWeight(1);action.crossFadeFrom(previous,.12,false);
+      const duration=action.getClip().duration;
+      posture={kind:'landing',action,until:performance.now()+(duration+.08)*1000};dirty=true;
+      clearTimeout(wakeTimer);wakeTimer=setTimeout(()=>{wakeTimer=null;if(posture?.action===action){action.stop();posture=null;dirty=true;}},(duration+.08)*1000);
+      return true;
+    }
     function restPose(kind,automatic=false){
-      const action=postureActions.get(kind==='sleep'?'Sleep':'Sit');
+      const action=postureActions.get({sit:'Sit',sleep:'Sleep',pickup:'Pickup'}[kind]);
       if(!alive||failed||!action||gait||manualCare||delivery||ballSession)return false;
       if(posture?.kind===kind)return true;
-      if(!automatic)restPolicyState.setPose(kind);
+      if(!automatic){if(kind==='pickup')restPolicyState.activity();else restPolicyState.setPose(kind);}
       wakeActionId++;clearTimeout(wakeTimer);wakeTimer=null;wakeResolve?.(false);wakeResolve=null;
       mixer.stopAllAction();activeAction=null;effect=null;clearQuote();resetItem();item.style.display='none';
       const previous=posture?.action;action.reset().play();action.time=action.getClip().duration;action.paused=true;
-      if(reduced){previous?.stop();action.setEffectiveWeight(1);}else{action.fadeIn(.7);if(previous&&previous!==action)previous.fadeOut(.7);}
-      posture={kind,action,until:performance.now()+(reduced?34:800)};dirty=true;return true;
+      const blend=kind==='pickup'?.16:.7;
+      if(reduced){previous?.stop();action.setEffectiveWeight(1);}else{action.fadeIn(blend);if(previous&&previous!==action)previous.fadeOut(blend);}
+      posture={kind,action,until:performance.now()+(reduced?34:(blend+.1)*1000)};dirty=true;return true;
+    }
+    function lifeBusy(){return !!(gait||manualCare||delivery||ballSession||(effect&&!passiveEffect())||(posture&&['pickup','landing','waking'].includes(posture.kind)));}
+    function blink(){
+      if(!alive||failed||!model||reduced||posture?.kind==='sleep'||lifeBusy())return false;
+      const ok=life.blink();if(ok)dirty=true;return ok;
     }
     const clipNames={curious:'Curious',tilt:'HeadTilt',wag:'TailWag','idle-look':'Curious','idle-tilt':'HeadTilt',welcome:'Happy',water:'Happy',snack:'Happy',celebrate:'Happy',happy:'Happy'};
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -122,7 +149,7 @@ const Pomeranian = (() => {
       if(passiveEffect()){mixer.stopAllAction();effect=null;activeAction=null;dirty=true;}
     }
     function noteActivity(allowWelcome=true){
-      restPolicyState.activity();if(posture)wake();
+      restPolicyState.activity();if(posture?.kind==='pickup')return;if(posture)wake();
       const welcome=idle.activity({allowWelcome:allowWelcome&&visible&&!passiveBusy()});
       stopIdleGesture();if(welcome){if(posture)deferWake(()=>react('welcome',false,true));else react('welcome',false,true);}
     }
@@ -186,8 +213,13 @@ const Pomeranian = (() => {
       const message=lines[Math.floor(Math.random()*lines.length)];lastQuotes.set(key,message);
       showQuote('cat-manual-care-complete',{kind:done.kind,personality:done.personality,message},'care');
     }
+    function setBat(amount){
+      for(const entry of battingBones)entry.bone.quaternion.copy(entry.rest).multiply(entry.rotation.setFromAxisAngle(entry.axis,entry.angle*amount));
+      pawApplied=amount>0;
+    }
     function cancelPlay(){
       if(!ballSession)return;
+      if(pawApplied)setBat(0);
       const wasWagging=ballSession.wagging;ballSession=null;ballPoint=null;
       if(ball)ball.visible=false;if(ballShadow)ballShadow.visible=false;
       if(wasWagging&&effect?.kind==='wag'){mixer.stopAllAction();effect=null;activeAction=null;}
@@ -205,6 +237,12 @@ const Pomeranian = (() => {
       mixer.stopAllAction();activeAction=null;effect=null;
       const now=performance.now();
       ballSession={start:now,lastFrame:now,duration:reduced?750:personality==='playful'?3700:personality==='sleepy'?5400:4400,personality,wagging:false};
+      if(!reduced&&battingBones.length===3){
+        setBat(1);model.updateMatrixWorld(true);
+        const contact=battingBones[2].bone.getWorldPosition(battingBones[2].bone.position.clone());
+        contact.add(contact.clone().set(0,0,.14).applyAxisAngle(contact.clone().set(0,1,0),bodyYaw));
+        ballSession.contact={x:contact.x,z:contact.z};setBat(0);model.updateMatrixWorld(true);
+      }
       dirty=true;return true;
     }
     function updateBall(now){
@@ -212,7 +250,7 @@ const Pomeranian = (() => {
       const session=ballSession;
       if(now-session.lastFrame>1000){cancelPlay();return;}
       session.lastFrame=now;
-      const state=CompanionBall.sample(now-session.start,session.duration,reduced);
+      const state=CompanionBall.sample(now-session.start,session.duration,reduced,session.contact);
       const oldX=ball.position.x,oldZ=ball.position.z;
       ball.position.set(state.x,state.y,state.z);ball.visible=state.visible;
       if(!reduced){ball.rotation.z-=(state.x-oldX)/.11;ball.rotation.x+=(state.z-oldZ)/.11;}
@@ -281,8 +319,8 @@ const Pomeranian = (() => {
     const onFocus=()=>{noteActivity();peekAtSearch();};
     const onMove=e=>{pointer={x:e.clientX,y:e.clientY};if(!posture)noteActivity();};
     const onLeave=()=>{pointer=null;cancelManualCare();};
-    const onBlur=()=>{wakeActionId++;restPolicyState.pause();pointer=null;searchLookUntil=0;idle.pause();stopIdleGesture();cancelPlay();cancelManualCare();cancelDelivery();clearQuote();if(effect){mixer.stopAllAction();effect=null;activeAction=null;dirty=true;}};
-    const onVisibility=()=>{visible=!document.hidden;idle.pause();if(!visible)onBlur();dirty=true;};
+    const onBlur=()=>{life.pause({sleeping:posture?.kind==='sleep'});dirty=true;wakeActionId++;restPolicyState.pause();pointer=null;searchLookUntil=0;idle.pause();stopIdleGesture();cancelPlay();cancelManualCare();cancelDelivery();clearQuote();if(effect){mixer.stopAllAction();effect=null;activeAction=null;dirty=true;}};
+    const onVisibility=()=>{visible=!document.hidden;life.pause({sleeping:posture?.kind==='sleep'});idle.pause();if(!visible)onBlur();dirty=true;};
     const onReturn=()=>{if(visible)noteActivity();};
     input?.addEventListener('input',onInput);input?.addEventListener('focus',onFocus);
     window.addEventListener('pointermove',onMove);document.addEventListener('pointerleave',onLeave);window.addEventListener('blur',onBlur);window.addEventListener('focus',onReturn);
@@ -307,7 +345,7 @@ const Pomeranian = (() => {
         mixer=new T.AnimationMixer(asset);
         gaitMixer=new T.AnimationMixer(asset);
         for(const clip of gltf.animations){
-          const isGait=clip.name==='Walk'||clip.name==='Trot',isPosture=clip.name==='Sit'||clip.name==='Sleep';
+          const isGait=clip.name==='Walk'||clip.name==='Trot',isPosture=['Sit','Sleep','Pickup','Land'].includes(clip.name);
           const tracks=clip.tracks.filter(track=>{const node=T.PropertyBinding.parseTrackName(track.name).nodeName;return isPosture?true:isGait?(node==='Body'||/^(Front|Rear)[LR](Upper|Lower|Paw)$/.test(node)):node==='Head'||node==='Tail';});
           if(!tracks.length)continue;
           const filtered=new T.AnimationClip(clip.name,clip.duration,tracks),action=(isGait||isPosture?gaitMixer:mixer).clipAction(filtered);
@@ -316,8 +354,11 @@ const Pomeranian = (() => {
         const box=new T.Box3().setFromObject(asset),size=box.getSize(new T.Vector3()),center=box.getCenter(new T.Vector3());
         const scale=1.9/Math.max(size.x,size.y,size.z);
         asset.position.set(-center.x,-box.min.y,-center.z);const normalized=new T.Group();normalized.add(asset);normalized.scale.setScalar(scale);model.add(normalized);scene.add(model);
-        asset.traverse(child=>{if(child.isMesh){child.frustumCulled=false;for(const m of Array.isArray(child.material)?child.material:[child.material]){m.roughness=.85;m.metalness=0;}}});
+        asset.traverse(child=>{if(child.isMesh){if(child.morphTargetDictionary?.Blink!==undefined&&child.morphTargetDictionary?.Breath!==undefined)faceMeshes.push(child);child.frustumCulled=false;for(const m of Array.isArray(child.material)?child.material:[child.material]){m.roughness=.85;m.metalness=0;}}});
         scene.updateMatrixWorld(true);head=asset.getObjectByName('Head');
+        for(const [name,angle] of [['FrontLUpper',-.45],['FrontLLower',.25],['FrontLPaw',.20]]){
+          const bone=asset.getObjectByName(name);if(bone)battingBones.push({bone,angle,rest:bone.quaternion.clone(),axis:new T.Vector3(1,0,0).applyQuaternion(bone.getWorldQuaternion(new T.Quaternion()).invert()).normalize(),rotation:new T.Quaternion()});
+        }
         if(head){
           headRest=head.quaternion.clone();headBase=headRest.clone();const inverse=head.getWorldQuaternion(new T.Quaternion()).invert();
           yawAxis=new T.Vector3(0,1,0).applyQuaternion(inverse).normalize();
@@ -340,23 +381,30 @@ const Pomeranian = (() => {
         observer=new ResizeObserver(resize);observer.observe(host);resize();clearTimeout(slowLoadTimer);status.remove();host.dataset.state='ready';host.setAttribute('aria-busy','false');
         function frame(now){
           if(!alive||failed)return;raf=requestAnimationFrame(frame);
-          if(!visible||now-last<1000/30)return;const dt=Math.min(.1,(now-last)/1000);last=now;
-          const restKind=restPolicyState.tick({busy:!!(gait||manualCare||delivery||ballSession||effect||quoteTimer!==null),visible});
+          if(!visible||now-last<1000/30)return;
+          const cssVisible=host.checkVisibility({checkVisibilityCSS:true});
+          if(!cssVisible){if(surfaceVisible){surfaceVisible=false;onBlur();}life.pause({sleeping:posture?.kind==='sleep'});restPolicyState.pause();idle.pause();last=now;return;}
+          if(!surfaceVisible){surfaceVisible=true;dirty=true;wake();}
+          const dt=Math.min(.1,(now-last)/1000);last=now;
+          const restKind=restPolicyState.tick({busy:!!(posture&&['pickup','landing','waking'].includes(posture.kind)||gait||manualCare||delivery||ballSession||effect||quoteTimer!==null),visible});
           if(restKind)restPose(restKind,true);
           const idleKind=idle.tick({busy:!!(posture||gait||manualCare||delivery||ballSession||effect||quoteTimer!==null||now<searchLookUntil),visible,reduced});
           if(idleKind)react(idleKind,false,true);
           updateBall(now);if(!alive)return;
           let gaze=ballSession?ballPoint:manualCare?.point||pointer;
           if(!ballSession&&!manualCare&&input&&now<searchLookUntil){const r=input.getBoundingClientRect();gaze={x:r.left+r.width/2,y:r.top+r.height/2};}
+          const face=life.sample({sleeping:posture?.kind==='sleep',busy:lifeBusy(),visible,reduced});
+          const faceNeedsDraw=Math.abs(face.blink-faceApplied.blink)>1e-4||(Math.abs(face.breath-faceApplied.breath)>1e-4&&now-lastFaceDraw>=100);
           const b=host.getBoundingClientRect(),canLook=!reduced&&!posture&&!gait&&(!effect||effect.kind==='wag');
           const targetYaw=canLook&&gaze?Math.max(-.23,Math.min(.23,(gaze.x-b.left-b.width*.5)/240*.23)):0;
           const targetPitch=canLook&&gaze?Math.max(-.09,Math.min(.12,(gaze.y-b.top-b.height*.3)/180*.12)):0;
-          if(!dirty&&!(posture&&(posture.kind==='waking'||now<posture.until))&&!gait&&!gaitStopAt&&Math.abs(angleDelta(bodyYaw,targetBodyYaw))<.0001&&!effect&&!manualCare&&!delivery&&!ballSession&&Math.abs(targetYaw-yaw)<.0001&&Math.abs(targetPitch-pitch)<.0001)return;
-          renderFrame(now,dt,targetYaw,targetPitch);
+          if(!dirty&&!faceNeedsDraw&&!(posture&&(posture.kind==='waking'||now<posture.until))&&!gait&&!gaitStopAt&&Math.abs(angleDelta(bodyYaw,targetBodyYaw))<.0001&&!effect&&!manualCare&&!delivery&&!ballSession&&Math.abs(targetYaw-yaw)<.0001&&Math.abs(targetPitch-pitch)<.0001)return;
+          renderFrame(now,dt,targetYaw,targetPitch,face);
         }
-        function renderFrame(now,dt,targetYaw,targetPitch){
+        function renderFrame(now,dt,targetYaw,targetPitch,face){
           dirty=false;
           const blend=1-Math.exp(-dt*9);yaw+=(targetYaw-yaw)*blend;pitch+=(targetPitch-pitch)*blend;const remaining=angleDelta(bodyYaw,targetBodyYaw);bodyYaw+=Math.sign(remaining)*Math.min(Math.abs(remaining)*(1-Math.exp(-dt*8)),dt*4.2);model.rotation.y=bodyYaw;model.rotation.z=0;model.position.y=0;
+          if(pawApplied)setBat(0);
           if(head&&!posture)head.quaternion.copy(headBase);
           const age=effect?(now-effect.start)/1000:10;
           if(effect&&age<effect.duration){
@@ -374,6 +422,13 @@ const Pomeranian = (() => {
             headBase.copy(head.quaternion);
             head.quaternion.multiply(turn.setFromAxisAngle(yawAxis,yaw)).multiply(nod.setFromAxisAngle(pitchAxis,pitch));
           }
+          const careMotion=delivery?CompanionInteraction.sample(now-delivery.start,1500,delivery.kind,reduced):{chew:0,lap:0,nod:0};
+          if(head&&!posture&&careMotion.nod)head.quaternion.multiply(nod.setFromAxisAngle(pitchAxis,careMotion.nod));
+          if(ballSession&&!gait&&!posture)setBat(CompanionInteraction.sample(now-ballSession.start,ballSession.duration,'ball',reduced).paw);
+          for(const mesh of faceMeshes){
+            for(const [name,value] of [['Chew',careMotion.chew],['Lap',careMotion.lap]]){const index=mesh.morphTargetDictionary[name];if(index!==undefined)mesh.morphTargetInfluences[index]=value;}
+            mesh.morphTargetInfluences[mesh.morphTargetDictionary.Blink]=face.blink;mesh.morphTargetInfluences[mesh.morphTargetDictionary.Breath]=face.breath;}
+          faceApplied={blink:face.blink,breath:face.breath};lastFaceDraw=now;
           const target=(manualCare||delivery)?getCareTarget():null;
           const b=host.getBoundingClientRect();
           if(target&&b.width&&b.height){
@@ -396,21 +451,21 @@ const Pomeranian = (() => {
         return false;
       }
     })();
-    return {element:host,ready,react,sit:()=>restPose('sit'),sleep:()=>restPose('sleep'),wake,isResting:()=>!!posture,setHeading,setLocomotion,getTurnRemaining:()=>Math.abs(angleDelta(bodyYaw,targetBodyYaw)),beginManualCare,updateManualCare,cancelManualCare,getCareTarget,
+    return {element:host,ready,react,blink,pickUp,releasePickup,sit:()=>restPose('sit'),sleep:()=>restPose('sleep'),wake,isResting:()=>!!posture,setHeading,setLocomotion,getTurnRemaining:()=>Math.abs(angleDelta(bodyYaw,targetBodyYaw)),beginManualCare,updateManualCare,cancelManualCare,getCareTarget,
       get animationNames(){return Object.freeze([...actions.keys(),...gaitActions.keys(),...postureActions.keys()]);},
-      getPose:()=>posture?posture.kind==='sleep'?'sleeping':posture.kind==='sit'?'sitting':'waking':ballSession?'playing':gait?(gait.kind==='run'?'running':'walking'):effect?.kind||'idle',
+      getPose:()=>posture?posture.kind==='sleep'?'sleeping':posture.kind==='sit'?'sitting':posture.kind==='pickup'?'held':posture.kind==='landing'?'landing':'waking':ballSession?'playing':gait?(gait.kind==='run'?'running':'walking'):effect?.kind||'idle',
       setView:name=>{
         if(!camera)return false;
         const views={front:[0,1.8,5],side:[5,1.8,0],left:[5,1.8,0],right:[-5,1.8,0],rear:[-2,1.8,-5],angle:[3,1.8,5]};
         if(!views[name])return false;camera.position.set(...views[name]);camera.lookAt(0,1,0);dirty=true;return true;
       },searchCompleted:()=>react('celebrate'),queryReset:()=>{},
       setName:value=>{companionName=typeof value==='string'?Array.from(value.replace(/[\u0000-\u001f\u007f-\u009f]/g,' ').replace(/\s+/g,' ').trim()).slice(0,24).join(''):'';},
-      setPersonality:value=>{personality=['calm','playful','sleepy'].includes(value)?value:'calm';idle.setPersonality(personality);restPolicyState.setPersonality(personality);if(posture&&posture.kind!=='waking')restPolicyState.setPose(posture.kind);},
+      setPersonality:value=>{personality=['calm','playful','sleepy'].includes(value)?value:'calm';idle.setPersonality(personality);restPolicyState.setPersonality(personality);life.setPersonality(personality);if(posture&&['sit','sleep'].includes(posture.kind))restPolicyState.setPose(posture.kind);},
       giveCare:kind=>startDelivery(kind),play:playBall,
-      destroy(){if(!alive)return;clearTimeout(wakeTimer);wakeResolve?.(false);wakeResolve=null;restPolicyState.destroy();clearTimeout(slowLoadTimer);view?.domElement.removeEventListener('webglcontextlost',onContextLost);idle.destroy();cancelPlay();cancelManualCare();cancelDelivery();clearQuote();alive=false;cancelAnimationFrame(raf);observer?.disconnect();
+      destroy(){if(!alive)return;life.destroy();clearTimeout(wakeTimer);wakeResolve?.(false);wakeResolve=null;restPolicyState.destroy();clearTimeout(slowLoadTimer);view?.domElement.removeEventListener('webglcontextlost',onContextLost);idle.destroy();cancelPlay();cancelManualCare();cancelDelivery();clearQuote();alive=false;cancelAnimationFrame(raf);observer?.disconnect();
         input?.removeEventListener('input',onInput);input?.removeEventListener('focus',onFocus);
         window.removeEventListener('pointermove',onMove);document.removeEventListener('pointerleave',onLeave);window.removeEventListener('blur',onBlur);window.removeEventListener('focus',onReturn);document.removeEventListener('visibilitychange',onVisibility);
-        mixer?.stopAllAction();gaitMixer?.stopAllAction();if(assetRoot){mixer?.uncacheRoot(assetRoot);gaitMixer?.uncacheRoot(assetRoot);}actions.clear();gaitActions.clear();postureActions.clear();
+        mixer?.stopAllAction();gaitMixer?.stopAllAction();if(assetRoot){mixer?.uncacheRoot(assetRoot);gaitMixer?.uncacheRoot(assetRoot);}actions.clear();gaitActions.clear();postureActions.clear();faceMeshes.length=0;battingBones.length=0;
         disposeModel(model);disposeModel(ball);disposeModel(ballShadow);view?.dispose();view?.forceContextLoss();host.remove();}
     };
   }

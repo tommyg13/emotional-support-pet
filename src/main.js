@@ -81,7 +81,7 @@ ipcMain.handle('dev-cat-action', (event, action, value) => {
   if (!dockWin || dockWin.isDestroyed()) return false;
   if (action === 'mood' && ['normal','bored','sleepy','auto'].includes(value)) dockWin.webContents.send('cat-dev-mood', value);
   else if (action === 'wave') dockWin.webContents.send('cat-dev-wave');
-  else if (action === 'puppy' && ['idle','welcome','water','snack','play','sit','sleep','wake'].includes(value) && loadSettings().searchCharacter === 'pomeranian') dockWin.webContents.send('companion-dev-action', value);
+  else if (action === 'puppy' && ['idle','welcome','water','snack','play','sit','sleep','wake','blink'].includes(value) && loadSettings().searchCharacter === 'pomeranian') dockWin.webContents.send('companion-dev-action', value);
   else return false;
   return true;
 });

@@ -16,3 +16,9 @@ test('invalid clocks cannot produce NaN scene positions',()=>{
  for(const [elapsed,duration] of [[NaN,4400],[0,0],[0,-1],[0,Infinity]])assert.throws(()=>sample(elapsed,duration),RangeError);
  assert.deepEqual(sample(-100,4400),sample(0,4400));
 });
+
+test('a rig-specific contact point releases the ball with the paw strike',()=>{
+ const contact={x:-.275,z:.715};const at=t=>sample(t*4400,4400,false,contact);
+ for(const boundary of [.28,.34,.6]){const a=at(boundary-1e-8),b=at(boundary);assert.ok(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<1e-5);}
+ assert.ok(Math.abs(at(.34).x-contact.x)<1e-6);assert.ok(at(.36).x<contact.x);assert.equal(at(.6).visible,false);
+});

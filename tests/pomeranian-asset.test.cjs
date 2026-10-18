@@ -3,9 +3,12 @@ const bytes=fs.readFileSync(path.join(__dirname,'../src/assets/pomeranian/pomera
 const jsonLength=bytes.readUInt32LE(12),asset=JSON.parse(bytes.subarray(20,20+jsonLength));
 const bin=bytes.subarray(28+jsonLength);
 function accessor(index){
- const a=asset.accessors[index],view=asset.bufferViews[a.bufferView],width={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type];
- const types={5121:[1,'readUInt8'],5123:[2,'readUInt16LE'],5126:[4,'readFloatLE']};const [size,method]=types[a.componentType];
- return Array.from({length:a.count},(_,i)=>Array.from({length:width},(_,c)=>bin[method]((view.byteOffset||0)+(a.byteOffset||0)+i*(view.byteStride||width*size)+c*size)));
+ const a=asset.accessors[index],width={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type];
+ const types={5121:[1,'readUInt8'],5123:[2,'readUInt16LE'],5125:[4,'readUInt32LE'],5126:[4,'readFloatLE']};const [size,method]=types[a.componentType];
+ const result=Array.from({length:a.count},()=>Array(width).fill(0));
+ if(a.bufferView!==undefined){const view=asset.bufferViews[a.bufferView];for(let i=0;i<a.count;i++)for(let c=0;c<width;c++)result[i][c]=bin[method]((view.byteOffset||0)+(a.byteOffset||0)+i*(view.byteStride||width*size)+c*size);}
+ if(a.sparse){const sp=a.sparse,indices=asset.bufferViews[sp.indices.bufferView],values=asset.bufferViews[sp.values.bufferView],[isize,iread]=types[sp.indices.componentType];for(let i=0;i<sp.count;i++){const row=bin[iread]((indices.byteOffset||0)+(sp.indices.byteOffset||0)+i*isize);for(let c=0;c<width;c++)result[row][c]=bin[method]((values.byteOffset||0)+(sp.values.byteOffset||0)+(i*width+c)*size);}}
+ return result;
 }
 test('Pomeranian GLB contains a valid seventeen-bone skin with finite normalized weights',()=>{
  assert.equal(bytes.readUInt32LE(0),0x46546c67);assert.equal(bytes.readUInt32LE(8),bytes.length);
@@ -20,7 +23,7 @@ test('Pomeranian GLB contains a valid seventeen-bone skin with finite normalized
  }
 });
 test('head and tail clips animate their intended bones and return to rest',()=>{
- assert.deepEqual(asset.animations.map(a=>a.name).sort(),['Curious','Happy','HeadTilt','Sit','Sleep','TailWag','Trot','Walk']);
+ assert.deepEqual(asset.animations.map(a=>a.name).sort(),['Curious','Happy','HeadTilt','Land','Pickup','Sit','Sleep','TailWag','Trot','Walk']);
  for(const [name,bone] of [['Curious','Head'],['HeadTilt','Head'],['TailWag','Tail'],['Happy','Tail']]){
   const clip=asset.animations.find(a=>a.name===name),channel=clip.channels.find(c=>asset.nodes[c.target.node].name===bone&&c.target.path==='rotation');
   assert.ok(channel);const sampler=clip.samplers[channel.sampler],times=accessor(sampler.input).flat(),rotations=accessor(sampler.output);
@@ -70,4 +73,29 @@ test('rest clips contain hips motion and their matching fur corrective',()=>{
   const channel=clip.channels.find(c=>c.target.path==='weights');assert.ok(channel);const values=accessor(clip.samplers[channel.sampler].output).flat();assert.ok(values.every(Number.isFinite));assert.ok(values.some(v=>v===1));
  }
  const report=JSON.parse(fs.readFileSync(path.join(__dirname,'../art/pomeranian/rest-report.json'),'utf8'));for(const name of ['Sit','Sleep']){assert.ok(report[name].min_z>=0);assert.ok(report[name].max_edge_stretch<3.1);}
+});
+
+test('pickup relaxes each leg and landing returns every keyed transform to its start',()=>{
+ const pickup=asset.animations.find(a=>a.name==='Pickup'),land=asset.animations.find(a=>a.name==='Land');assert.ok(pickup&&land);
+ for(const name of ['FrontL','FrontR','RearL','RearR']){
+  const ch=pickup.channels.find(c=>asset.nodes[c.target.node].name===name+'Lower'&&c.target.path==='rotation');assert.ok(ch);const q=accessor(pickup.samplers[ch.sampler].output);assert.ok(q.some(v=>Math.abs(v.reduce((s,n,i)=>s+n*q[0][i],0))<.999));
+ }
+ for(const ch of land.channels){const v=accessor(land.samplers[ch.sampler].output);assert.ok(v.flat().every(Number.isFinite));if(ch.target.path==='rotation')assert.ok(Math.abs(v[0].reduce((s,n,i)=>s+n*v.at(-1)[i],0))>.9999);else assert.ok(v[0].every((n,i)=>Math.abs(n-v.at(-1)[i])<1e-5));}
+ const report=JSON.parse(fs.readFileSync(path.join(__dirname,'../art/pomeranian/pickup-report.json'),'utf8'));assert.ok(report.Pickup.max_edge_stretch<1.8);assert.ok(report.Land.max_edge_stretch<1.4);assert.ok(report.Land.min_z>=-.001);
+});
+
+test('facial morphs stay localized and chest breathing leaves head and paws still',()=>{
+ const mesh=asset.meshes[0],primitive=mesh.primitives[0],names=mesh.extras.targetNames;assert.ok(names.includes('Blink')&&names.includes('Breath'));
+ const position=accessor(primitive.attributes.POSITION),blink=accessor(primitive.targets[names.indexOf('Blink')].POSITION),breath=accessor(primitive.targets[names.indexOf('Breath')].POSITION);
+ let eyeVertices=0,chestVertices=0;for(let i=0;i<position.length;i++){const e=Math.hypot(...blink[i]),b=Math.hypot(...breath[i]);assert.ok(Number.isFinite(e+b));if(e>1e-6){eyeVertices++;assert.ok(position[i][1]>.65&&position[i][1]<.80);}if(b>1e-6){chestVertices++;assert.ok(position[i][1]>.23&&position[i][1]<.65);}assert.ok(b<.006);}
+ assert.ok(eyeVertices>500&&eyeVertices<1500);assert.ok(chestVertices>1000);
+});
+
+test('chewing and lapping stay below the nose and leave the body unchanged',()=>{
+ const mesh=asset.meshes[0],p=mesh.primitives[0],names=mesh.extras.targetNames,position=accessor(p.attributes.POSITION);
+ for(const name of ['Chew','Lap']){
+  assert.ok(names.includes(name));const deltas=accessor(p.targets[names.indexOf(name)].POSITION);let changed=0;
+  for(let i=0;i<deltas.length;i++){const d=Math.hypot(...deltas[i]);assert.ok(Number.isFinite(d)&&d<.01);if(d>1e-6){changed++;assert.ok(position[i][1]>.56&&position[i][1]<.65);assert.ok(position[i][2]>.25);}}
+  assert.ok(changed>100&&changed<2000);
+ }
 });

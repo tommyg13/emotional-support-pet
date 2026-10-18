@@ -175,7 +175,8 @@
     <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
   </section>
   <script src="typing-cat.js"></script>
-  <script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script>
+  <script src="companion-life.js"></script>
+<script src="companion-interaction.js"></script><script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script>
   <script src="search-character.js"></script>
   <script src="cat-name.js"></script>
   <script>
@@ -373,12 +374,12 @@
     api.onCatPersonality(value => { currentPersonality=value;catController.setPersonality(value); });
     const stopDevCatAction=api.onDevCatAction(async (action, value) => {
       if(action==='puppy') {
-        if(selectedCharacter!=='pomeranian'||!['idle','welcome','water','snack','play','sit','sleep','wake'].includes(value))return;
+        if(selectedCharacter!=='pomeranian'||!['idle','welcome','water','snack','play','sit','sleep','wake','blink'].includes(value))return;
         const controller=catController;
         if(!await controller.ready||controller!==catController||controller.destroyed)return;
         if(value==='water'||value==='snack')controller.giveCare(value);
         else if(value==='play')controller.play();
-        else if(value==='sit'||value==='sleep'||value==='wake')controller[value]();
+        else if(value==='sit'||value==='sleep'||value==='wake'||value==='blink')controller[value]();
         else controller.react(value);
         return;
       }

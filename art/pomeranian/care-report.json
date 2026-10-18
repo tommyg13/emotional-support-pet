@@ -1,0 +1,11 @@
+{
+  "vertices": {
+    "Chew": 894,
+    "Lap": 330
+  },
+  "maximum_displacement": {
+    "Chew": 0.009219543995570305,
+    "Lap": 0.00948683252513429
+  },
+  "asset_bytes": 5098008
+}

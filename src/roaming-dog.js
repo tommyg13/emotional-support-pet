@@ -2,6 +2,7 @@
 const RoamingDog = (() => {
   function mount(container, options={}) {
     const reduced=options.reducedMotion??matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const swing=CompanionSwing.create({reduced});
     const size=180,host=document.createElement('div'),body=document.createElement('div');
     host.style.cssText=`position:fixed;left:0;top:0;width:${size}px;height:${size}px;touch-action:none;cursor:grab;transform-origin:50% 22%;`;
     host.setAttribute('aria-label','Roaming Pomeranian. Click to return home, or drag to move.');
@@ -29,7 +30,8 @@ const RoamingDog = (() => {
     function drop(cancelled=false){
       if(!held)return false;const state=held;held=null;
       if(host.hasPointerCapture(state.id))host.releasePointerCapture(state.id);
-      angle=0;host.style.cursor='grab';options.onHeld?.(false);drag?.end(cancelled);paint(performance.now());return true;
+      renderer.releasePickup(cancelled||!state.moved);
+      if(cancelled||reduced){swing.reset();angle=0;}host.style.cursor='grab';options.onHeld?.(false);drag?.end(cancelled);paint(performance.now());return true;
     }
     function down(event){
       if(event.button!==0||event.target.closest('button')||!alive||!loaded)return;
@@ -40,8 +42,10 @@ const RoamingDog = (() => {
     function move(event){
       if(!held||held.id!==event.pointerId)return;
       const now=performance.now(),dt=Math.max(1,now-held.lastTime);
-      held.moved ||= Math.hypot(event.clientX-held.startX,event.clientY-held.startY)>5;
-      angle=reduced?0:clamp((event.clientX-held.lastX)/dt*8,-18,18);
+      if(!held.moved&&Math.hypot(event.clientX-held.startX,event.clientY-held.startY)>5){
+        held.moved=true;const length=Math.hypot(heading.x,heading.y)||1;host.style.transformOrigin=`${50+12*heading.x/length}% 30%`;renderer.pickUp();
+      }
+      if(held.moved)swing.aim((event.clientX-held.lastX)/dt*1000);
       held.lastX=event.clientX;held.lastTime=now;
       position(event.clientX+held.offsetX,event.clientY+held.offsetY);drag?.move(event.clientX,event.clientY);paint(now);
     }
@@ -70,8 +74,8 @@ const RoamingDog = (() => {
         if(d<=step){x=moving.x;y=moving.y;const finish=moving.resolve;moving=null;renderer.setLocomotion('idle');finish(true);}
         else{x+=dx/d*step;y+=dy/d*step;}
       }
-      if(!held)angle*=Math.exp(-dt*12);
-      if(wasMoving||held||jumpStart!==null||Math.abs(angle)>.01)paint(now);
+      const wasSwinging=swing.active();angle=swing.step(dt,!!held);
+      if(wasMoving||wasSwinging||jumpStart!==null)paint(now);
     }
     position(x,y);paint(last);raf=requestAnimationFrame(frame);
     return {

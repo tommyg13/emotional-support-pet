@@ -9,7 +9,7 @@ function fixture() {
   walkTo:(...args)=>{calls.push(['walkTo',...args]);return new Promise(r=>{resolve=r;});},
   watchAt:(...args)=>calls.push(['look',...args]),
   destroy:()=>{destroyed++;resolve?.(false);}};
- for(const name of ['sit','stop','jump','setSpeed','setPosition','getPosition','getPose','isHeld','drop','setPersonality','searchCompleted','queryReset','giveCare','beginManualCare','updateManualCare','cancelManualCare','playYarn','play','setMood','react']) renderer[name]=(...args)=>{calls.push([name,...args]);return name==='getPose'?'idle':true;};
+ for(const name of ['blink','sit','stop','jump','setSpeed','setPosition','getPosition','getPose','isHeld','drop','setPersonality','searchCompleted','queryReset','giveCare','beginManualCare','updateManualCare','cancelManualCare','playYarn','play','setMood','react']) renderer[name]=(...args)=>{calls.push([name,...args]);return name==='getPose'?'idle':true;};
  const context=vm.createContext({Pomeranian:{mount:()=>renderer,careIcons:{water:'bowl-svg',snack:'bone-svg'},toyIcon:'ball-svg'},TypingCat:{mount:()=>renderer,careIcons:{water:'water-svg'},yarnIcon:'yarn-svg'},WalkingCat:{mount:()=>renderer},RoamingDog:{mount:()=>renderer}});
  vm.runInContext('const TypingCat = globalThis.TypingCat; const WalkingCat = globalThis.WalkingCat; delete globalThis.TypingCat; delete globalThis.WalkingCat;',context);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/search-character.js'),'utf8'),context);
@@ -66,3 +66,5 @@ test('roaming dog forwards movement and running including supported rest poses',
  const arrival=c.runTo(130,240,{home:true});f.arrive();assert.equal(await arrival,true);
  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0])),['walkTo',130,240,{home:true,run:true}]);c.destroy();
 });
+
+test('the puppy advertises blink while the SVG cat retains its existing animation contract',()=>{const f=fixture(),dog=f.api.mount('pomeranian','docked',{});assert.equal(dog.supports('blink'),true);dog.blink();assert.deepEqual(f.calls.at(-1),['blink']);const cat=f.api.mount('wizard-cat','docked',{});assert.equal(cat.supports('blink'),false);assert.equal(cat.blink(),false);});

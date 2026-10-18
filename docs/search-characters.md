@@ -47,10 +47,10 @@ The source GLB came from the user's Downloads archive
 `pomeranian-dog-standing-pose-realistic-toy-breed-character/pomeranian dog 001 glb.rar`.
 Its textures are embedded. The unmodified source had no skeleton, morph targets
 or animation clips. The app now uses a seventeen-bone rig with Curious,
-HeadTilt, TailWag, Happy, Walk, Trot, Sit and Sleep clips, plus bone, water bowl and heart overlays,
+HeadTilt, TailWag, Happy, Walk, Trot, Sit, Sleep, Pickup and Land clips, plus bone, water bowl and heart overlays,
 and a small 3D play ball.
 Typing occasionally triggers a short glance toward the search input; food, water,
-play and completed searches trigger Happy. It walks and trots with four two-joint leg chains, and can sit or lie down to rest; a moving jaw and closed eyelids are still pending. Manual water and bone delivery
+play and completed searches trigger Happy. It walks and trots with four two-joint leg chains, and can sit or lie down to rest; the eyes blink and close for sleep; jaw articulation is still pending. Manual water and bone delivery
 uses the shared care controls; the cat's richer controls remain intact.
 
 All modules and model assets live under src and are included by the existing
@@ -101,8 +101,7 @@ runs an optional desktop Electron check using rendered pixels to verify visible
 head movement, stationary paws, stable gaze, blur reset, search glances and
 cleanup. `node --test` remains usable without a desktop session.
 
-Sitting remains unsupported. Separate prototype deformations distorted the
-fused rear fur and were not installed in the app or committed as usable assets.
+Sitting and sleeping now use the corrected rest poses described below.
 
 ## Mouth delivery
 
@@ -111,7 +110,7 @@ and mouth-right anchors are children of the animated Head bone. Their projected
 positions drive the delivery radius and sprite location/rotation, including at
 the dock's minimum width. A small target ring appears during a manual carry.
 Both ordinary clicks and manual deliveries hold the bone or bowl near the mouth;
-this is an attachment effect, not a moving-jaw animation.
+localized lower-muzzle chewing and tongue lapping now accompany the attachment.
 
 Manual completion fires one legacy cat-manual-care-complete event after the item
 finishes. It includes a non-repeating personality quote, displayed by the shared
@@ -132,7 +131,7 @@ and drag gesture as the actual dock.
 The puppy's play action starts a bounded 3D ball sequence. A striped sphere rolls
 in toward the front paws, gives a small contact bounce, then rolls away. Head
 gaze follows its projected position; the existing TailWag clip supplies the
-finale. This docked play sequence does not animate a paw batting the ball. The ball,
+finale. A front-paw push now meets the ball before it rolls away. The ball,
 stripes and ground shadow are local Three.js primitives and require no new asset.
 
 CompanionBall.sample in src/companion-ball.js describes the continuous stage path
@@ -210,14 +209,44 @@ The camera remains fixed during travel. The model turns smoothly toward the scre
 
 Separate paw bones keep the planted paw controls level while the upper/lower joints articulate. A three-dimensional leg solver compensates a gentle Body roll (0.65 degrees walking; 0.35 degrees trotting) so the shoulders and hips shift without lifting the planted controls. The shorter strides reduce coat deformation: the recorded peak edge stretch is 1.731 for Walk and 2.066 for Trot, down from 1.939 and 2.444. The report measures planted control height and tilt at exported cycle frames; it is not a terrain-aware foot-lock system.
 
-Turning is bounded to 4.2 radians/second, and travel slows for large heading errors. A sharp reversal briefly steps in place before translating, rather than sliding sideways while facing the old direction. Gait playback now reaches lower rates during deceleration, and Walk/Trot transitions preserve normalized cycle phase. Existing reduced-motion, drag, return-home and cancellation behavior remain intact. The movement stage itself does not add rest poses; the next stage below adds those separately. Pickup leg poses, facial animation and jaw/paw interaction clips remain pending.
+Turning is bounded to 4.2 radians/second, and travel slows for large heading errors. A sharp reversal briefly steps in place before translating, rather than sliding sideways while facing the old direction. Gait playback now reaches lower rates during deceleration, and Walk/Trot transitions preserve normalized cycle phase. Existing reduced-motion, drag, return-home and cancellation behavior remain intact. The movement stage itself does not add rest poses; the next stage below adds those separately. Pickup leg poses are added in stage three below. Facial rest motion is added in stage four below; feeding and paw contact are described in stage five below.
 
 ## Seated and sleeping postures (stage two)
 
 `add-pomeranian-rest.py` extends the sixteen-bone gait source with a Hips control, Sit and Sleep clips, and matching compressed-fur corrective morphs. Rebuild in separate folders: original source → `create-pomeranian-rig.py` → `add-pomeranian-gait.py` → `add-pomeranian-rest.py`. The last script rejects an already extended rig. The blend retains full-resolution textures; the exported GLB stays below 5 MiB. Each fur corrective is merged into its skeletal clip so it cannot remain active after waking. `rest-report.json` records endpoint floor clearance and deformation bounds.
 
-Postures blend to held endpoints over about 700 ms and wake over about 450 ms. The torso and head lower into a relaxed lying pose for sleep; eyes remain open until the facial-animation stage. Static poses do not keep drawing continuously. Reduced motion switches poses without transition animation. Input, focus, moving, return-home, picking up, jumping, play and food wake the puppy. Deferred play/care waits for waking; cancellation or destruction invalidates pending callbacks.
+Postures blend to held endpoints over about 700 ms and wake over about 450 ms. The torso and head lower into a relaxed lying pose for sleep; the eyes now close through the independent facial morph added in stage four. Still poses skip rendering unless another visible motion needs a frame. Reduced motion switches poses without transition animation. Input, focus, moving, return-home, picking up, jumping, play and food wake the puppy. Deferred play/care waits for waking; cancellation or destruction invalidates pending callbacks.
 
 `CompanionRest` owns idle timing: Calm sits after 45 seconds and sleeps after 120; Playful uses 60/180, Sleepy 30/90. Care, play, movement and hidden windows postpone automatic rest. Manual sleep cannot be replaced by the earlier automatic sit stage. The dock’s roaming Sit button works for both characters, and Settings → Developer includes puppy Sit, Sleep and Wake tests. The preview has the same controls.
 
 `npm run check:pomeranian-rest` checks rendered lowering, automatic posture progression with an injected clock, wake-before-play/care, cancelled wake cleanup, and reduced motion. Normal tests cover policy timing, busy/hidden guards, explicit poses, skin integrity and the corrective channels. Roaming integration checks verify that the original SVG cat still moves and that the puppy can return home and be picked up after sitting.
+
+## Pickup and landing (stage three)
+
+`add-pomeranian-pickup.py` extends the seventeen-bone rest-stage blend with Pickup and Land actions, without changing vertex weights, geometry or texture resolution. Pickup relaxes all four leg chains and angles the paws down; Land briefly lowers the Body while solving the legs to keep the paws planted, then returns to the original standing transforms. The GLB stays below 5 MiB and the editable blend retains 4K textures. `pickup-report.json` records the inspected endpoint deformation: 1.698 peak edge stretch for Pickup and 1.292 for Land. Negative Pickup Z is intentional because hanging paws extend below the standing baseline; the Land pose remains on the floor.
+
+The roaming adapter enters Pickup only after the pointer moves more than five pixels. A press/release without movement keeps click-to-home behavior and does not land. A sleeping puppy wakes first; releasing before waking completes invalidates the queued pickup. Normal drop blends into the one-shot landing clip, while blur, pointer cancellation, hiding, destruction and failed graphics cancel without landing. Starting another action interrupts landing safely. Pickup/landing postpones automatic resting and does not alter the stored name or personality.
+
+`CompanionSwing` applies a bounded damped spring to pointer movement. Its pivot follows the approximate neck position for the facing direction, and it settles gently after release. Reduced motion disables swing and landing motion while keeping the static relaxed leg pose. Static held poses stop rendering once their blend completes.
+
+The standalone preview has Pickup pose and Set down buttons. `npm run check:pomeranian-pickup` checks rendered leg changes, landing/rest recovery, cancelled pickup during wake, actual captured pointer dragging, quick-click home, blur cancellation, and reduced motion. Unit tests check swing bounds, frame-rate consistency, settling and reduced motion; asset checks verify landing loop endpoints and deformation limits.
+
+## Blinking and resting breath (stage four)
+
+`add-pomeranian-life.py` extends the pickup-stage source with independent Blink and Breath shape keys. The sculpted face is asymmetric, so the two eye regions use separately inspected centers. The eye shape compresses the textured eye surface and surrounding lids on the skinned mesh; it follows the Head bone without an overlay. The chest shape affects only the middle coat, leaving the paws and head geometry unchanged. `life-report.json` records the regions and a maximum chest displacement of about 0.0051 source units. The editable blend retains full-resolution images; the exported GLB remains below 5 MiB. Sparse facial deltas are retained, while imperceptible Breath normal deltas and their unused storage are removed.
+
+`CompanionLife` uses an injected clock and no timers. Personality changes the quiet blink interval (roughly 3.5–9.5 seconds across profiles), blink duration (170–240 ms), and breathing period (3.8–5.8 seconds). Sleeping holds the eyes closed; waking opens them smoothly. Manual Blink ignores busy or sleeping states. Care, play, locomotion and pickup suppress spontaneous facial motion without replacing their skeletal actions. Hidden surfaces reset pending blinks so they never replay a backlog.
+
+Facial weights are applied after skeletal and corrective-morph animation, so a held rest clip cannot overwrite the eyelids or chest. Resting breath redraws at up to 10 fps; blinks retain the renderer’s 30 fps limit. The hidden docked puppy pauses drawing, idle posture changes and facial sampling while its roaming counterpart is visible. Reduced motion disables blinking and breathing, retaining static closed sleep eyes and immediate reopening. Destruction removes the policy and all mesh references along with existing GPU cleanup.
+
+The preview and Settings → Developer include Blink. Sleep and Stand / wake exercise the closed-eye transitions. `npm run check:pomeranian-life` verifies rendered blink/reopen, visible but subtle chest movement, unchanged paw pixels, closed sleep eyes, waking, hidden-surface suspension, cleanup and reduced motion. Clock-policy tests cover scheduling, interruption, bounds and resuming without blink bursts. Exact-pixel tests for independent head/gait/pickup behavior inject a quiet face policy, while the new check covers their facial counterpart.
+
+## Feeding and paw contact (stage five)
+
+`add-pomeranian-care.py` extends the life-stage source with Chew and Lap shape keys. Both affect only the lower muzzle and tongue, below the nose, with displacement below 0.01 source units. This is a restrained approximation on the fused sculpt, rather than an anatomical jaw or tongue rig. The editable blend retains its packed 4K textures; the runtime GLB remains below 5 MiB. `care-report.json` records affected vertices and maximum displacement.
+
+`CompanionInteraction` supplies bounded chewing/lapping cycles and a small head nod during the existing 1500 ms delivery. Both click and manual feeding animate; only completed manual feeding emits its existing quote. Shapes reset on completion or interruption. Reduced motion leaves the mouth still.
+
+Docked ball play uses three existing left-front leg bones for a bounded reach and return. The target is computed from the posed paw in world space, so it follows the current heading. The ball releases at the strike (34% of the session), then the paw returns to rest. These offsets are reset before other mixers and on cancellation. The desktop roaming toy chase still uses its existing arrival/look behavior; this stage refines the separate 3D ball sequence.
+
+`npm run check:pomeranian-interaction` checks the exported motion in Electron and measures paw-to-ball proximity. Unit checks cover timing envelopes, contact-path continuity, and mouth-region isolation; existing care and ball checks cover completion, interruption and reduced motion.
