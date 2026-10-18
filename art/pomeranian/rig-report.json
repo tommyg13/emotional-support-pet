@@ -1,0 +1,19 @@
+{
+  "weighted_vertices": {
+    "Body": 20130,
+    "Head": 8368,
+    "Tail": 2419
+  },
+  "max_edge_stretch": {
+    "Curious": 1.306,
+    "HeadTilt": 1.226,
+    "TailWag": 1.471,
+    "Happy": 1.4
+  },
+  "clips": [
+    "Curious",
+    "HeadTilt",
+    "TailWag",
+    "Happy"
+  ]
+}

@@ -119,6 +119,7 @@
       display: block;
     }
     #walkToggle {border:0;background:#ffffff60;color:#745c70;border-radius:12px;padding:7px;display:grid;place-items:center;cursor:pointer;}
+    #walkToggle[hidden] {display:none;}
     #walkToggle svg {width:24px;height:24px;}
     #walkToggle:focus-visible {outline:none;box-shadow:0 0 0 3px #b38eb666;}
     #aiToggle { border:0; border-radius:16px; padding:9px; cursor:pointer; color:#59433c; background:#ffffff70; white-space:nowrap; }
@@ -173,6 +174,7 @@
     <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
   </section>
   <script src="typing-cat.js"></script>
+  <script src="pomeranian.js"></script>
   <script src="search-character.js"></script>
   <script src="cat-name.js"></script>
   <script>
@@ -210,7 +212,7 @@
       if (!(e.key in widths)) return;
       e.preventDefault(); api.dockResize(Math.max(400, Math.min(560, widths[e.key]))); api.dockResizeEnd();
     });
-    let catRoaming = false;
+    let catRoaming = false, selectedCharacter = 'wizard-cat', currentPersonality = 'calm';
     const walkToggle=document.getElementById('walkToggle');
     function updateWalkToggle() {
       const label=catRoaming?'Bring the cat home':'Let the cat walk';
@@ -219,7 +221,7 @@
     }
     document.getElementById('care').hidden=false;document.getElementById('roamCommands').hidden=true;
     updateWalkToggle();
-    walkToggle.onclick=async()=>{walkToggle.disabled=true;try{if(catRoaming)await api.returnCat();else await api.releaseCat();}finally{walkToggle.disabled=false;}};
+    walkToggle.onclick=async()=>{if(selectedCharacter!=='wizard-cat')return;walkToggle.disabled=true;try{if(catRoaming)await api.returnCat();else await api.releaseCat();}finally{walkToggle.disabled=false;}};
     const stopRoaming = api.onCatRoaming?.(value => {
       catRoaming=value;updateWalkToggle();document.getElementById('care').hidden=value;document.getElementById('roamCommands').hidden=!value;if(!value)document.getElementById('catSpeed').setAttribute('aria-pressed','false');
       document.getElementById('wrap').classList.toggle('roaming',value);
@@ -230,7 +232,7 @@
     input.addEventListener('input',e=>{if(catRoaming&&!e.isComposing&&input.value.trim()&&!input.value.trim().startsWith('/'))api.searchTyping();});
     input.title = 'Type /walk to release your cat, or /home to bring it back';
     window.addEventListener('beforeunload',()=>stopRoaming?.());
-    const catController = SearchCharacters.mount('wizard-cat', 'docked', document.getElementById('cat'), {input});
+    let catController = SearchCharacters.mount('wizard-cat', 'docked', document.getElementById('cat'), {input});
     const carried = document.getElementById('carriedCare');
     let carry = null, holdTimer = null;
     function endCarry() {
@@ -321,8 +323,32 @@
       document.getElementById('careBubble').hidden = !e.detail.full;
     });
     window.addEventListener('beforeunload', () => { catController.destroy(); stopCatName?.(); });
-    api.getSettings().then(s => { catController.setPersonality(s.catPersonality || 'calm'); updateCatName(s.catName); }).catch(() => {});
-    api.onCatPersonality(value => catController.setPersonality(value));
+    function selectSearchCharacter(id) {
+      const definition = SearchCharacters.predefined.find(entry => entry.id === id);
+      if (!definition || id === selectedCharacter) return;
+      endCarry();catController.destroy();
+      document.getElementById('cat').replaceChildren();
+      selectedCharacter = id;
+      catController = SearchCharacters.mount(id, 'docked', document.getElementById('cat'), {input});
+      catController.setPersonality(currentPersonality);
+      walkToggle.hidden = !definition.modes.includes('roaming');
+      document.getElementById('careBubble').hidden = true;
+      document.getElementById('yarnBubble').hidden = true;
+      for (const [buttonId,kind,label] of [['giveWater','water','Water'],['giveSnack','snack',definition.items.food==='bone'?'Bone treat':'Fish treat'],['playYarn','toy',definition.items.toy==='ball'?'Ball':'Yarn']]) {
+        const button = document.getElementById(buttonId);
+        button.querySelector('svg')?.remove();
+        button.insertAdjacentHTML('afterbegin',kind==='toy'?catController.icons.toy:catController.icons.care[kind]);
+        button.querySelector('span').textContent = label;
+        button.setAttribute('aria-label',label);
+        button.title = kind==='toy'?'Play with '+label.toLowerCase():catController.supports('beginManualCare')?'Click to give, or hold and bring it to the cat':'Give '+label.toLowerCase();
+      }
+      document.getElementById('care').setAttribute('aria-label','Care for your '+definition.name);
+      input.title = id==='wizard-cat'?'Type /walk to release your cat, or /home to bring it back':'Your Pomeranian keeps you company while you search';
+    }
+    const stopSearchCharacter = api.onSearchCharacter?.(selectSearchCharacter);
+    window.addEventListener('beforeunload',()=>stopSearchCharacter?.());
+    api.getSettings().then(s => { currentPersonality=s.catPersonality||'calm';selectSearchCharacter(s.searchCharacter||'wizard-cat');catController.setPersonality(currentPersonality);updateCatName(s.catName); }).catch(() => {});
+    api.onCatPersonality(value => { currentPersonality=value;catController.setPersonality(value); });
     api.onDevCatAction((action, value) => window.dispatchEvent(new CustomEvent(action === 'mood' ? 'cat-dev-mood' : 'cat-dev-wave', { detail: value }))); 
 
     // Explicit capture gives the animation reliable press/release state during window dragging.
@@ -387,6 +413,7 @@
     async function submit() {
       const q = input.value.trim();
       if (/^\/(walk|home)$/i.test(q)) {
+        if(selectedCharacter!=='wizard-cat'){input.title='Walking is available for the wizard cat.';return;}
         const command=q.toLowerCase();
         try {
           const ok=command==='/walk'?await api.releaseCat():await api.returnCat();

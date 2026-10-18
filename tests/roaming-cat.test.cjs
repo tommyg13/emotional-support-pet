@@ -1,9 +1,9 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const {EventEmitter}=require('node:events');const install=require('../src/roaming-cat');
-function fixture(fail=false,personality='calm'){
+function fixture(fail=false,personality='calm',character='wizard-cat'){
  const handlers={},events=[],windows=[];let click,stopped=false;let cursor={x:0,y:0};
  class Win extends EventEmitter{constructor(bounds){super();this.bounds=bounds;this.dead=false;this.webContents=new EventEmitter();this.webContents.isDestroyed=()=>false;this.webContents.send=(...v)=>events.push(v);windows.push(this);}getBounds(){return this.bounds;}isDestroyed(){return this.dead;}setAlwaysOnTop(){}setVisibleOnAllWorkspaces(){}setIgnoreMouseEvents(v){this.ignored=v;}showInactive(){}async loadFile(){if(fail)throw Error('load failed');}close(){if(!this.dead){this.dead=true;this.emit('closed');}}}
  const dock=new Win({x:100,y:300,width:560,height:270});const app=new EventEmitter();app.whenReady=async()=>{};const screen=new EventEmitter();screen.getDisplayMatching=()=>({workArea:{x:0,y:0,width:1200,height:800}});screen.getCursorScreenPoint=()=>cursor;
- install({app,screen,BrowserWindow:Win,ipcMain:{handle:(n,f)=>handlers[n]=f,on:(n,f)=>handlers[n]=f},getDockWindow:()=>dock,preload:'preload.js',page:'roaming-cat.html',getPersonality:()=>personality,startClicks:cb=>{click=cb;return {enabled:true,stop(){stopped=true;}};}});
+ install({app,screen,BrowserWindow:Win,ipcMain:{handle:(n,f)=>handlers[n]=f,on:(n,f)=>handlers[n]=f},getDockWindow:()=>dock,preload:'preload.js',page:'roaming-cat.html',getPersonality:()=>personality,getCharacter:()=>character,startClicks:cb=>{click=cb;return {enabled:true,stop(){stopped=true;}};}});
  return {click:p=>click(p),stopped:()=>stopped,handlers,dock,events,windows,cursor:p=>cursor=p,event:()=>({sender:windows.at(-1).webContents})};
 }
 test('release is authorized, unique, and restores dock when clicked home',async()=>{
@@ -55,4 +55,11 @@ test('typing does not override scruff dragging or a home request',async()=>{
  const count=f.events.length;f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.equal(f.events.length,count);
  f.handlers['cat-roam-held'](f.event(),false);f.handlers['cat-home'](f.event());const returning=f.events.length;
  f.handlers['cat-search-typing']({sender:f.dock.webContents});assert.equal(f.events.length,returning);f.dock.close();
+});
+
+test('static Pomeranian cannot start a roaming window through commands or release IPC',async()=>{
+ const f=fixture(false,'calm','pomeranian');
+ assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),false);
+ assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'jump')).ok,false);
+ assert.equal(f.windows.length,1);
 });

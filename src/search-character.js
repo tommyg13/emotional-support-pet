@@ -18,6 +18,7 @@
       if (!this.supports(action)) return false;
       return this.actions[action](...args);
     }
+    get ready() { return this.renderer.ready || Promise.resolve(true); }
     get element() { return this.renderer.element; }
     getBounds() { return this.perform('getBounds'); }
     destroy() {
@@ -41,7 +42,13 @@
     modes: Object.freeze(['docked', 'roaming']),
     renderers: Object.freeze({docked: mountDockedCat, roaming: mountRoamingCat})
   });
-  const predefined = Object.freeze([cat]);
+  const dog = Object.freeze({
+    id: 'pomeranian', name: 'Pomeranian', type: '3d',
+    items: Object.freeze({food: 'bone', drink: 'water', toy: 'ball'}),
+    modes: Object.freeze(['docked']),
+    renderers: Object.freeze({docked: mountDockedDog})
+  });
+  const predefined = Object.freeze([cat, dog]);
   function mount(id, mode, container, options = {}) {
     const definition = predefined.find(entry => entry.id === id);
     if (!definition) throw new Error('Unknown predefined search character: ' + id);
@@ -73,6 +80,15 @@
       actions.lookAt = (...args) => renderer.watchAt(...args);
       actions.getBounds = () => renderer.element.querySelector('svg').getBoundingClientRect();
       return {renderer, actions, icons: {}};
+  }
+  function mountDockedDog(container, options) {
+    const engine = typeof Pomeranian !== 'undefined' ? Pomeranian : root.Pomeranian;
+    const renderer = engine.mount(container, options);
+    const actions = {};
+    for (const name of ['setPersonality', 'searchCompleted', 'queryReset', 'giveCare', 'play', 'react', 'getPose']) {
+      actions[name] = (...args) => renderer[name](...args);
+    }
+    return {renderer, actions, icons: {care: engine.careIcons, toy: engine.toyIcon}};
   }
   root.SearchCharacters = Object.freeze({predefined, mount});
   if (typeof module !== 'undefined' && module.exports) module.exports = root.SearchCharacters;

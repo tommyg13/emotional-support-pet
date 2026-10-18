@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('api', {
   dragStart: () => ipcRenderer.send('drag-start'),
   dragMove: (dx, dy) => ipcRenderer.send('drag-move', { dx, dy }),
   buttonMenu: () => ipcRenderer.send('button-menu'),
+  onSearchCharacter: cb => {const fn=(_e,id)=>cb(id);ipcRenderer.on('search-character',fn);return()=>ipcRenderer.removeListener('search-character',fn);},
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSettings: (patch) => ipcRenderer.invoke('set-settings', patch),
   listCustom: () => ipcRenderer.invoke('list-custom'),

@@ -10,16 +10,17 @@ let activeSeconds = 0, snoozeUntil = 0, lastBreakTick = Date.now();
 let playing = false;
 let safetyTimer = null;
 let dragStart = null;
-require('./roaming-cat')({app,BrowserWindow,ipcMain,screen,getDockWindow:()=>dockWin,getPersonality:()=>loadSettings().catPersonality,preload:path.join(__dirname,'preload.js'),page:path.join(__dirname,'roaming-cat.html')});
+const roamingCat = require('./roaming-cat')({app,BrowserWindow,ipcMain,screen,getDockWindow:()=>dockWin,getPersonality:()=>loadSettings().catPersonality,getCharacter:()=>loadSettings().searchCharacter,preload:path.join(__dirname,'preload.js'),page:path.join(__dirname,'roaming-cat.html')});
 
 const DEV_MODE = !app.isPackaged || process.argv.includes('--dev');
-const DEFAULTS = { characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', dockWidth: 560 };
+const DEFAULTS = { searchCharacter: 'wizard-cat', characterId: 'cat-orange', duration: 4, searchDock: true, dockPos: null, aiEnabled: false, aiProvider: 'openai', breakReminderEnabled: false, breakReminderMinutes: 60, catPersonality: 'calm', catName: '', dockWidth: 560 };
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const charsDir = () => path.join(app.getPath('userData'), 'characters');
 
 function loadSettings() {
   try {
     const settings = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) };
+    settings.searchCharacter = ['wizard-cat','pomeranian'].includes(settings.searchCharacter) ? settings.searchCharacter : 'wizard-cat';
     settings.catName = CatName.normalize(settings.catName);
     return settings;
   } catch {
@@ -364,8 +365,13 @@ ipcMain.handle('set-settings', (_e, patch) => {
   next.breakReminderEnabled = !!next.breakReminderEnabled;
   next.breakReminderMinutes = [30,45,60,90,120].includes(Number(next.breakReminderMinutes)) ? Number(next.breakReminderMinutes) : 60;
   next.catPersonality = ['calm', 'playful', 'sleepy'].includes(next.catPersonality) ? next.catPersonality : 'calm';
+  next.searchCharacter = ['wizard-cat','pomeranian'].includes(next.searchCharacter) ? next.searchCharacter : 'wizard-cat';
   next.catName = CatName.normalize(next.catName);
   saveSettings(next);
+  if ('searchCharacter' in patch) {
+    roamingCat.home();
+    if (dockWin && !dockWin.isDestroyed()) dockWin.webContents.send('search-character', next.searchCharacter);
+  }
   if ('catName' in patch) {
     for (const win of [dockWin, breakWin]) if (win && !win.isDestroyed()) win.webContents.send('cat-name', next.catName);
   }

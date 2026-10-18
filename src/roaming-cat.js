@@ -1,5 +1,5 @@
 // Own the temporary desktop surface; only its cat can intercept desktop clicks.
-module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen, getDockWindow, preload, page, getPersonality = ()=>'calm', startClicks = require('./desktop-clicks')}) {
+module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen, getDockWindow, preload, page, getPersonality = ()=>'calm', getCharacter = ()=>'wizard-cat', startClicks = require('./desktop-clicks')}) {
   let win = null, timer = null, hit = null, held = false, ignored = true, returning = false, clickListener = null, fast = false, lastCuriousAt = -Infinity;
   function notify(value) {const dock=getDockWindow();if(dock&&!dock.isDestroyed()&&!dock.webContents.isDestroyed())dock.webContents.send('cat-roaming',value);}
   function home() {if(win&&!win.isDestroyed())win.close();}
@@ -15,7 +15,7 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
   function authorized(event) {return win&&!win.isDestroyed()&&event.sender===win.webContents;}
   let releaseCat;
   ipcMain.handle('cat-release',releaseCat=async event=>{
-    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents)return false;
+    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||getCharacter()!=='wizard-cat')return false;
     if(win&&!win.isDestroyed())return true;
     const b=dock.getBounds(), display=screen.getDisplayMatching(b), area=display.workArea;
     const scale=b.width/560;
