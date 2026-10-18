@@ -1,6 +1,6 @@
 {
   "name": "emotional-support-pet",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "An offline desktop companion for search, play, and little moments of support",
   "main": "src/main.js",
   "scripts": {
