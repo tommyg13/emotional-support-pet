@@ -1,0 +1,30 @@
+{
+  "Stand": {
+    "frames": 16,
+    "minimum_foot_z": -0.025
+  },
+  "Sit": {
+    "frames": 16,
+    "minimum_foot_z": -0.025
+  },
+  "Walk": {
+    "frames": 25,
+    "minimum_foot_z": 0.0
+  },
+  "Run": {
+    "frames": 19,
+    "minimum_foot_z": 0.0
+  },
+  "RoamSleep": {
+    "frames": 46,
+    "minimum_foot_z": -0.025
+  },
+  "Pickup": {
+    "frames": 10,
+    "minimum_foot_z": -0.153202
+  },
+  "Land": {
+    "frames": 16,
+    "minimum_foot_z": 0.0
+  }
+}

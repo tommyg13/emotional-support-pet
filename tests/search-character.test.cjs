@@ -9,8 +9,8 @@ function fixture() {
   walkTo:(...args)=>{calls.push(['walkTo',...args]);return new Promise(r=>{resolve=r;});},
   watchAt:(...args)=>calls.push(['look',...args]),
   destroy:()=>{destroyed++;resolve?.(false);}};
- for(const name of ['blink','sit','stop','jump','setSpeed','setPosition','getPosition','getPose','isHeld','drop','setPersonality','searchCompleted','queryReset','giveCare','beginManualCare','updateManualCare','cancelManualCare','playYarn','play','setMood','react']) renderer[name]=(...args)=>{calls.push([name,...args]);return name==='getPose'?'idle':true;};
- const context=vm.createContext({Pomeranian:{mount:()=>renderer,careIcons:{water:'bowl-svg',snack:'bone-svg'},toyIcon:'ball-svg'},TypingCat:{mount:()=>renderer,careIcons:{water:'water-svg'},yarnIcon:'yarn-svg'},WalkingCat:{mount:()=>renderer},RoamingDog:{mount:()=>renderer}});
+ for(const name of ['blink','sit','sleep','wake','setName','stop','jump','setSpeed','setPosition','getPosition','getPose','isHeld','drop','setPersonality','searchCompleted','queryReset','giveCare','beginManualCare','updateManualCare','cancelManualCare','playYarn','play','setMood','react']) renderer[name]=(...args)=>{calls.push([name,...args]);return name==='getPose'?'idle':true;};
+ const context=vm.createContext({Panda:{mount:()=>renderer,careIcons:{water:'water-svg',snack:'bamboo-svg'},toyIcon:'leaf-svg'},Pomeranian:{mount:()=>renderer,careIcons:{water:'bowl-svg',snack:'bone-svg'},toyIcon:'ball-svg'},TypingCat:{mount:()=>renderer,careIcons:{water:'water-svg'},yarnIcon:'yarn-svg'},WalkingCat:{mount:()=>renderer},RoamingDog:{mount:()=>renderer}});
  vm.runInContext('const TypingCat = globalThis.TypingCat; const WalkingCat = globalThis.WalkingCat; delete globalThis.TypingCat; delete globalThis.WalkingCat;',context);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/search-character.js'),'utf8'),context);
  return {api:context.SearchCharacters,calls,destroyed:()=>destroyed,arrive:()=>resolve(true)};
@@ -68,3 +68,13 @@ test('roaming dog forwards movement and running including supported rest poses',
 });
 
 test('the puppy advertises blink while the SVG cat retains its existing animation contract',()=>{const f=fixture(),dog=f.api.mount('pomeranian','docked',{});assert.equal(dog.supports('blink'),true);dog.blink();assert.deepEqual(f.calls.at(-1),['blink']);const cat=f.api.mount('wizard-cat','docked',{});assert.equal(cat.supports('blink'),false);assert.equal(cat.blink(),false);});
+
+
+test('panda has its own items and exposes docked care, rest and blink',()=>{
+ const f=fixture(),panda=f.api.mount('panda','docked',{});assert.equal(panda.definition.items.food,'bamboo');assert.equal(panda.icons.toy,'leaf-svg');assert.equal(panda.supports('walkTo'),false);assert.equal(panda.supports('sleep'),true);assert.equal(panda.supports('blink'),true);assert.ok(panda.definition.modes.includes('roaming'));
+ panda.giveCare('snack');panda.sleep();panda.blink();assert.deepEqual(f.calls,[['giveCare','snack'],['sleep'],['blink']]);panda.destroy();assert.equal(panda.giveCare('snack'),false);
+});
+
+test('roaming panda forwards bounded movement through the shared 3D adapter',async()=>{
+ const f=fixture(),panda=f.api.mount('panda','roaming',{});assert.equal(panda.supports('giveCare'),false);assert.equal(panda.supports('isHeld'),true);const arrival=panda.runTo(240,310);f.arrive();assert.equal(await arrival,true);assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0])),['walkTo',240,310,{run:true}]);panda.destroy();
+});

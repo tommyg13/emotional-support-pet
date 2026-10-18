@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld('api', {
   dockDragStart: () => ipcRenderer.send('dock-drag-start'),
   dockDragMove: (dx, dy) => ipcRenderer.send('dock-drag-move', { dx, dy }),
   dockDragEnd: () => ipcRenderer.send('dock-drag-end'),
+  onPandaName: cb => {
+    const listener=(_event,name)=>cb(name);ipcRenderer.on('panda-name',listener);return ()=>ipcRenderer.removeListener('panda-name',listener);
+  },
   onPuppyName: cb => {
     const listener = (_event, name) => cb(name);
     ipcRenderer.on('puppy-name', listener);
@@ -64,10 +67,12 @@ contextBridge.exposeInMainWorld('api', {
     const mood = (_event, value) => cb('mood', value);
     const wave = () => cb('wave');
     const companion = (_event, value) => cb('puppy', value);
+    const panda=(_event,value)=>cb('panda',value);
     ipcRenderer.on('cat-dev-mood', mood);
     ipcRenderer.on('cat-dev-wave', wave);
     ipcRenderer.on('companion-dev-action', companion);
-    return () => { ipcRenderer.removeListener('cat-dev-mood', mood); ipcRenderer.removeListener('cat-dev-wave', wave); ipcRenderer.removeListener('companion-dev-action', companion); };
+    ipcRenderer.on('panda-dev-action',panda);
+    return () => { ipcRenderer.removeListener('cat-dev-mood', mood); ipcRenderer.removeListener('cat-dev-wave', wave); ipcRenderer.removeListener('companion-dev-action', companion);ipcRenderer.removeListener('panda-dev-action',panda); };
   },
   onDockCursor: (cb) => {
     const listener = (_event, point) => cb(point);

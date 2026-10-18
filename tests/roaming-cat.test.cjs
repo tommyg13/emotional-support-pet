@@ -72,3 +72,7 @@ test('Pomeranian release uses the same authorized desktop surface and supports s
 test('unknown companions cannot release a desktop surface',async()=>{
  const f=fixture(false,'calm','unknown');assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),false);assert.equal(f.windows.length,1);
 });
+
+test('panda release uses the authorized desktop surface and its own renderer query',async()=>{
+ const f=fixture(false,'calm','panda');try{assert.equal(await f.handlers['cat-release']({sender:f.dock.webContents}),true);assert.equal(f.windows.at(-1).loadOptions.query.character,'panda');assert.equal((await f.handlers['cat-roam-command']({sender:f.dock.webContents},'sit')).ok,true);}finally{f.dock.close();}
+});

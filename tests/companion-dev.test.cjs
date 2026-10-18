@@ -11,3 +11,11 @@ test('puppy developer actions require developer mode, settings sender, active do
  context.loadSettings=()=>({searchCharacter:'pomeranian'});context.dockWin=null;assert.equal(invoke('welcome'),false);
  assert.equal(events.length,count);
 });
+
+test('panda developer actions require the selected panda and settings sender',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../src/main.js'),'utf8'),handlers={},events=[],sender={};const context=vm.createContext({DEV_MODE:true,settingsWin:{webContents:sender},ipcMain:{handle:(key,fn)=>handlers[key]=fn},dockWin:{isDestroyed:()=>false,webContents:{send:(...args)=>events.push(args)}},loadSettings:()=>({searchCharacter:'panda'}),showBreakReminder:()=>true});
+ vm.runInContext(source.slice(source.indexOf("ipcMain.handle('is-dev-mode'"),source.indexOf('// ---------- custom characters')),context);
+ const call=(value,event={sender})=>handlers['dev-cat-action'](event,'panda',value);
+ for(const value of ['idle','welcome','water','snack','play','sit','sleep','wake','blink']){assert.equal(call(value),true);assert.deepEqual(events.at(-1),['panda-dev-action',value]);}
+ assert.equal(call('unknown'),false);assert.equal(call('sleep',{sender:{}}),false);context.loadSettings=()=>({searchCharacter:'pomeranian'});assert.equal(call('sleep'),false);context.DEV_MODE=false;assert.equal(call('sleep'),false);
+});

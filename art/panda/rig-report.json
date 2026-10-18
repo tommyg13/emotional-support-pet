@@ -1,0 +1,29 @@
+{
+  "bones": 13,
+  "blink_meshes": [
+    "L eye rim",
+    "L iris",
+    "L large eye glint",
+    "L pupil",
+    "L small eye glint",
+    "R eye rim",
+    "R iris",
+    "R large eye glint",
+    "R pupil",
+    "R small eye glint"
+  ],
+  "posture": "seated doze and standing waddle",
+  "clips": [
+    "Land",
+    "Nibble",
+    "Pickup",
+    "RoamSleep",
+    "Run",
+    "SeatedIdle",
+    "Sit",
+    "Sleep",
+    "Stand",
+    "Walk"
+  ],
+  "asset_bytes": 2520016
+}

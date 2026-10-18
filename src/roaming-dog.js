@@ -1,13 +1,14 @@
-/* Bounded desktop movement with articulated four-leg gait and smooth 3D heading. */
+/* Shared bounded desktop movement for the puppy and panda renderers. */
 const RoamingDog = (() => {
   function mount(container, options={}) {
     const reduced=options.reducedMotion??matchMedia('(prefers-reduced-motion: reduce)').matches;
     const swing=CompanionSwing.create({reduced});
     const size=180,host=document.createElement('div'),body=document.createElement('div');
     host.style.cssText=`position:fixed;left:0;top:0;width:${size}px;height:${size}px;touch-action:none;cursor:grab;transform-origin:50% 22%;`;
-    host.setAttribute('aria-label','Roaming Pomeranian. Click to return home, or drag to move.');
+    host.setAttribute('aria-label','Roaming '+(options.label||'Pomeranian')+'. Click to return home, or drag to move.');
     body.style.cssText='width:100%;height:100%;';host.appendChild(body);container.appendChild(host);
-    let renderer=Pomeranian.mount(body),alive=true,loaded=false,moving=null,held=null,speed=1,heading={x:1,y:0},angle=0,jumpStart=null,raf=0,last=performance.now();
+    const engine=options.engine||Pomeranian,createRenderer=()=>engine.mount(body,options.rendererOptions||{});
+    let renderer=createRenderer(),alive=true,loaded=false,moving=null,held=null,speed=1,heading={x:1,y:0},angle=0,jumpStart=null,raf=0,last=performance.now();
     let actionEpoch=0;
     let x=Number.isFinite(options.x)?options.x:innerWidth/2,y=Number.isFinite(options.y)?options.y:innerHeight*.7;
     const drag=typeof DragReactions==='undefined'?null:DragReactions.create({now:()=>performance.now(),onReaction:phase=>options.onDragReaction?.(phase)});
@@ -57,7 +58,7 @@ const RoamingDog = (() => {
     let personality='calm',name='';
     async function load(){const current=renderer;const ok=await current.ready;if(!alive||current!==renderer)return false;loaded=ok;if(ok){renderer.setHeading(heading.x,heading.y);renderer.setPersonality(personality);renderer.setName(name);}return ok;}
     let ready=load();
-    function retry(event){event.stopPropagation();if(!alive)return;stop();drop(true);loaded=false;renderer.destroy();renderer=Pomeranian.mount(body);ready=load();}
+    function retry(event){event.stopPropagation();if(!alive)return;stop();drop(true);loaded=false;renderer.destroy();renderer=createRenderer();ready=load();}
     host.addEventListener('character-retry',retry);
     function frame(now){
       if(!alive)return;raf=requestAnimationFrame(frame);const dt=Math.min(.05,(now-last)/1000);last=now;
@@ -85,7 +86,7 @@ const RoamingDog = (() => {
       getPose:()=>renderer.element.dataset.state==='error'?'error':held?'held':moving?(moving.waiting?'waking':moving.run?'running':'walking'):jumpStart!==null?'jumping':renderer.getPose(),
       setSpeed:value=>{if(!Number.isFinite(value)||value<=0)return false;speed=clamp(value,.5,2.5);return true;},
       sit:()=>{stop();return renderer.sit();},sleep:()=>{stop();return renderer.sleep();},wake:()=>renderer.wake(),
-      jump:()=>{if(!alive||!loaded||held)return false;const epoch=++actionEpoch;renderer.wake().then(ok=>{if(ok&&alive&&!held&&epoch===actionEpoch){if(!reduced)jumpStart=performance.now();renderer.react('wag');}});return true;},
+      jump:()=>{if(!alive||!loaded||held)return false;const epoch=++actionEpoch;renderer.wake().then(ok=>{if(ok&&alive&&!held&&epoch===actionEpoch){if(!reduced)jumpStart=performance.now();renderer.react(options.jumpReaction||'wag');}});return true;},
       watchAt:point=>{if(point)renderer.react('curious');return true;},
       setPersonality:value=>{personality=value;renderer.setPersonality(value);},setName:value=>{name=value;renderer.setName(value);},
       destroy(){if(!alive)return;stop();drop(true);alive=false;cancelAnimationFrame(raf);host.removeEventListener('character-retry',retry);window.removeEventListener('blur',cancel);window.removeEventListener('resize',resize);renderer.destroy();host.remove();}

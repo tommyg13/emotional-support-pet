@@ -15,7 +15,7 @@ module.exports = function installRoamingCat({app, BrowserWindow, ipcMain, screen
   function authorized(event) {return win&&!win.isDestroyed()&&event.sender===win.webContents;}
   let releaseCat;
   ipcMain.handle('cat-release',releaseCat=async event=>{
-    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||!['wizard-cat','pomeranian'].includes(getCharacter()))return false;
+    const dock=getDockWindow();if(!dock||dock.isDestroyed()||event.sender!==dock.webContents||!['wizard-cat','pomeranian','panda'].includes(getCharacter()))return false;
     if(win&&!win.isDestroyed())return true;
     const b=dock.getBounds(), display=screen.getDisplayMatching(b), area=display.workArea;
     const scale=b.width/560;

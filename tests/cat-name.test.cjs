@@ -23,3 +23,10 @@ test('puppy name saves independently and only notifies the dock',()=>{
  handler({}, {puppyName:'  Biscuit\n pup  '});assert.equal(saved.puppyName,'Biscuit pup');assert.equal(saved.catName,'Mochi');assert.deepEqual(events,[['puppy-name','Biscuit pup']]);
  handler({}, {puppyName:''});assert.equal(saved.puppyName,'');assert.equal(saved.catName,'Mochi');
 });
+
+test('panda selection and name persist without changing the other companions',()=>{
+ const source=fs.readFileSync(path.join(root,'main.js'),'utf8'),start=source.indexOf("ipcMain.handle('set-settings'"),end=source.indexOf("ipcMain.handle('list-custom'",start);let handler,saved={searchCharacter:'wizard-cat',catName:'Mochi',puppyName:'Biscuit',pandaName:'',catPersonality:'calm',breakReminderEnabled:true};const events=[];let homes=0;
+ const context=vm.createContext({CatName,ipcMain:{handle:(_n,f)=>handler=f},loadSettings:()=>saved,saveSettings:s=>saved=s,dockWin:{isDestroyed:()=>false,webContents:{send:(...args)=>events.push(args)}},roamingCat:{home:()=>homes++},closeBreakReminder(){},applySearchDock(){}});vm.runInContext(source.slice(start,end),context);
+ handler({}, {searchCharacter:'panda',pandaName:'  Bao\n buddy  '});assert.equal(saved.searchCharacter,'panda');assert.equal(saved.pandaName,'Bao buddy');assert.equal(saved.catName,'Mochi');assert.equal(saved.puppyName,'Biscuit');assert.equal(homes,1);assert.deepEqual(events,[['search-character','panda'],['panda-name','Bao buddy']]);
+ handler({}, {pandaName:''});assert.equal(saved.pandaName,'');assert.equal(saved.searchCharacter,'panda');handler({}, {searchCharacter:'/tmp/arbitrary.glb'});assert.equal(saved.searchCharacter,'wizard-cat');
+});

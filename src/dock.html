@@ -176,7 +176,7 @@
   </section>
   <script src="typing-cat.js"></script>
   <script src="companion-life.js"></script>
-<script src="companion-interaction.js"></script><script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script>
+<script src="companion-interaction.js"></script><script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script><script src="panda.js"></script>
   <script src="search-character.js"></script>
   <script src="cat-name.js"></script>
   <script>
@@ -217,7 +217,7 @@
     let catRoaming = false, selectedCharacter = 'wizard-cat', currentPersonality = 'calm';
     const walkToggle=document.getElementById('walkToggle');
     function updateWalkToggle() {
-      const pet=selectedCharacter==='pomeranian'?'puppy':'cat';
+      const pet=selectedCharacter==='panda'?'panda':selectedCharacter==='pomeranian'?'puppy':'cat';
       const label=catRoaming?'Bring the '+pet+' home':'Let the '+pet+' walk';
       walkToggle.title=label;walkToggle.setAttribute('aria-label',label);walkToggle.setAttribute('aria-pressed',String(catRoaming));
       walkToggle.innerHTML=catRoaming?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="8" cy="15" rx="3.5" ry="5" transform="rotate(-25 8 15)"/><ellipse cx="17" cy="8" rx="3.5" ry="5" transform="rotate(-25 17 8)"/><circle cx="5" cy="8" r="1.6"/><circle cx="14" cy="2" r="1.6"/></svg>';
@@ -305,21 +305,22 @@
         } finally {button.disabled=false;}
       });
     }
-    const companionNames = {catName:'',puppyName:''};
+    const companionNames = {catName:'',puppyName:'',pandaName:''};
     function refreshCompanionName() {
-      const puppy=selectedCharacter==='pomeranian';
-      const name=companionNames[puppy?'puppyName':'catName'];
+      const puppy=selectedCharacter==='pomeranian',panda=selectedCharacter==='panda';
+      const name=companionNames[panda?'pandaName':puppy?'puppyName':'catName'];
       updateCatName(name);
       catController.setName(name);
-      document.getElementById('care').setAttribute('aria-label','Care for '+(name||(puppy?'your puppy':'your cat')));
+      document.getElementById('care').setAttribute('aria-label','Care for '+(name||(panda?'your panda':puppy?'your puppy':'your cat')));
     }
     function updateCatName(name) {
-      const label = CatName.normalize(name) || (selectedCharacter==='pomeranian'?'Your puppy':'Your cat');
+      const label = CatName.normalize(name) || (selectedCharacter==='panda'?'Your panda':selectedCharacter==='pomeranian'?'Your puppy':'Your cat');
       document.getElementById('careBubble').textContent = `${label} is happy—and full! Let’s paws for a moment. ♡`;
     }
     const stopCatName = api.onCatName?.(name=>{companionNames.catName=CatName.normalize(name);refreshCompanionName();});
     const stopPuppyName=api.onPuppyName?.(name=>{companionNames.puppyName=CatName.normalize(name);refreshCompanionName();});
-    window.addEventListener('beforeunload',()=>stopPuppyName?.());
+    const stopPandaName=api.onPandaName?.(name=>{companionNames.pandaName=CatName.normalize(name);refreshCompanionName();});
+    window.addEventListener('beforeunload',()=>{stopPuppyName?.();stopPandaName?.();});
     document.getElementById('cat').addEventListener('cat-yarn-complete', e => {
       const bubble = document.getElementById('yarnBubble');
       bubble.textContent = e.detail.message;
@@ -352,10 +353,10 @@
       document.getElementById('catSit').hidden=false;
       document.getElementById('catJump').title='Make your companion jump';
       document.getElementById('roamCommands').setAttribute('aria-label','Roaming companion commands');
-      const chase=document.getElementById('chaseYarn');chase.querySelector('svg')?.remove();chase.insertAdjacentHTML('afterbegin',catController.icons.toy);chase.querySelector('span').textContent=id==='pomeranian'?'Ball':'Yarn';chase.title='Chase the '+(id==='pomeranian'?'ball':'yarn');
+      const chase=document.getElementById('chaseYarn');chase.querySelector('svg')?.remove();chase.insertAdjacentHTML('afterbegin',catController.icons.toy);chase.querySelector('span').textContent=definition.items.toy==='leaf'?'Leaf':definition.items.toy==='ball'?'Ball':'Yarn';chase.title='Chase the '+(definition.items.toy==='leaf'?'leaf':definition.items.toy==='ball'?'ball':'yarn');
       document.getElementById('careBubble').hidden = true;
       document.getElementById('yarnBubble').hidden = true;
-      for (const [buttonId,kind,label] of [['giveWater','water','Water'],['giveSnack','snack',definition.items.food==='bone'?'Bone treat':'Fish treat'],['playYarn','toy',definition.items.toy==='ball'?'Ball':'Yarn']]) {
+      for (const [buttonId,kind,label] of [['giveWater','water','Water'],['giveSnack','snack',definition.items.food==='bamboo'?'Bamboo':definition.items.food==='bone'?'Bone treat':'Fish treat'],['playYarn','toy',definition.items.toy==='leaf'?'Leaf':definition.items.toy==='ball'?'Ball':'Yarn']]) {
         const button = document.getElementById(buttonId);
         button.querySelector('svg')?.remove();
         button.insertAdjacentHTML('afterbegin',kind==='toy'?catController.icons.toy:catController.icons.care[kind]);
@@ -365,16 +366,16 @@
       }
       document.getElementById('care').setAttribute('aria-label','Care for your '+definition.name);
       refreshCompanionName();
-      input.title = 'Type /walk to release your companion, or /home to bring it back';
+      input.title = definition.modes.includes('roaming')?'Type /walk to release your companion, or /home to bring it back':'Your panda keeps you company here. Walking is coming later.';
     }
-    document.getElementById('cat').addEventListener('character-retry',()=>{if(selectedCharacter==='pomeranian')selectSearchCharacter(selectedCharacter,true);});
+    document.getElementById('cat').addEventListener('character-retry',()=>{if(['pomeranian','panda'].includes(selectedCharacter))selectSearchCharacter(selectedCharacter,true);});
     const stopSearchCharacter = api.onSearchCharacter?.(selectSearchCharacter);
     window.addEventListener('beforeunload',()=>stopSearchCharacter?.());
-    api.getSettings().then(s => { currentPersonality=s.catPersonality||'calm';selectSearchCharacter(s.searchCharacter||'wizard-cat');catController.setPersonality(currentPersonality);companionNames.catName=CatName.normalize(s.catName);companionNames.puppyName=CatName.normalize(s.puppyName);refreshCompanionName(); }).catch(() => {});
+    api.getSettings().then(s => { currentPersonality=s.catPersonality||'calm';selectSearchCharacter(s.searchCharacter||'wizard-cat');catController.setPersonality(currentPersonality);companionNames.catName=CatName.normalize(s.catName);companionNames.puppyName=CatName.normalize(s.puppyName);companionNames.pandaName=CatName.normalize(s.pandaName);refreshCompanionName(); }).catch(() => {});
     api.onCatPersonality(value => { currentPersonality=value;catController.setPersonality(value); });
     const stopDevCatAction=api.onDevCatAction(async (action, value) => {
-      if(action==='puppy') {
-        if(selectedCharacter!=='pomeranian'||!['idle','welcome','water','snack','play','sit','sleep','wake','blink'].includes(value))return;
+      if(action==='puppy'||action==='panda') {
+        if(selectedCharacter!==(action==='panda'?'panda':'pomeranian')||!['idle','welcome','water','snack','play','sit','sleep','wake','blink'].includes(value))return;
         const controller=catController;
         if(!await controller.ready||controller!==catController||controller.destroyed)return;
         if(value==='water'||value==='snack')controller.giveCare(value);
@@ -423,7 +424,7 @@
     }
     async function refresh() {
       const s = await api.getSettings();
-      companionNames.catName=CatName.normalize(s.catName);companionNames.puppyName=CatName.normalize(s.puppyName);refreshCompanionName();
+      companionNames.catName=CatName.normalize(s.catName);companionNames.puppyName=CatName.normalize(s.puppyName);companionNames.pandaName=CatName.normalize(s.pandaName);refreshCompanionName();
       const nextModel = s.aiModels?.[s.aiProvider] || '';
       if (provider && (provider !== s.aiProvider || activeModel !== nextModel)) reset();
       activeModel = nextModel;

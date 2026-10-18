@@ -64,8 +64,8 @@
 <p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the cat to move it.</p>
 
 <h2>Search character</h2>
-<div class="row"><label>Companion <select id="searchCharacter"><option value="wizard-cat">Wizard cat · SVG</option><option value="pomeranian">Pomeranian · 3D</option></select></label></div>
-<p class="hint">The puppy turns its head, wags its tail, and enjoys a bone treat and a ball. Hold a water or food button to bring it to your companion. Both companions can roam. The puppy has a four-leg walk and trot. Both companions sit and rest when idle. The puppy wakes before moving or playing.</p>
+<div class="row"><label>Companion <select id="searchCharacter"><option value="wizard-cat">Wizard cat · SVG</option><option value="pomeranian">Pomeranian · 3D</option><option value="panda">Bamboo panda · 3D</option></select></label></div>
+<p class="hint">The puppy turns its head, wags its tail, and enjoys a bone treat and a ball. Hold a water or food button to bring it to your companion. All three companions can roam. The panda waddles, carries bamboo, chases a leaf, and settles into a seated doze. The puppy has a four-leg walk and trot. Companions rest when idle. The puppy wakes before moving or playing.</p>
 <p id="characterStatus" class="hint" role="status"></p>
 <h2 id="companionNameHeading">Your cat’s name</h2>
 <div class="row"><label>Name <input id="catName" type="text" placeholder="Your cat" maxlength="48" autocomplete="off" aria-describedby="catNameHint"></label></div>
@@ -86,6 +86,7 @@
 <h3>Puppy reactions</h3>
 <p class="hint">Select Pomeranian in Search settings and enable the dock first. These buttons skip the idle and away waiting times.</p>
 <div class="row"><button class="act alt" data-puppy="idle">Idle glance</button><button class="act alt" data-puppy="welcome">Welcome back</button><button class="act alt" data-puppy="water">Water</button><button class="act alt" data-puppy="snack">Bone treat</button><button class="act alt" data-puppy="play">Play ball</button><button class="act alt" data-puppy="sit">Sit</button><button class="act alt" data-puppy="sleep">Sleep</button><button class="act alt" data-puppy="wake">Wake</button><button class="act alt" data-puppy="blink">Blink</button></div>
+<h3>Panda reactions</h3><p class="hint">Select Bamboo panda and enable the search dock first.</p><div class="row"><button class="act alt" data-panda="idle">Idle glance</button><button class="act alt" data-panda="welcome">Welcome back</button><button class="act alt" data-panda="water">Water</button><button class="act alt" data-panda="snack">Bamboo</button><button class="act alt" data-panda="play">Leaf play</button><button class="act alt" data-panda="sleep">Sleep</button><button class="act alt" data-panda="wake">Wake</button><button class="act alt" data-panda="blink">Blink</button></div>
 <p id="devStatus" class="hint" role="status"></p>
 </section>
 <script src="../node_modules/lottie-web/build/player/lottie.min.js"></script>
@@ -114,6 +115,10 @@
         status.textContent = sent ? 'Test sent to the puppy. Let the current reaction finish before trying another.' : 'Select Pomeranian and enable the search dock first.';
       } catch { status.textContent = 'Could not start the test. Please try again.'; }
       finally { button.disabled = false; }
+    });
+    document.querySelectorAll('[data-panda]').forEach(button=>button.onclick=async()=>{
+      button.disabled=true;const status=document.getElementById('devStatus');
+      try{const sent=await api.devCatAction('panda',button.dataset.panda);status.textContent=sent?'Test sent to the panda.':'Select Bamboo panda and enable the search dock first.';}catch{status.textContent='Could not start the test. Please try again.';}finally{button.disabled=false;}
     });
     document.getElementById('devWave').onclick = () => api.devCatAction('wave');
     document.getElementById('devBreak').onclick = () => api.devCatAction('break');
@@ -213,9 +218,9 @@
 
   const catName = document.getElementById('catName');
   function renderCompanionName() {
-    const puppy = settings.searchCharacter === 'pomeranian';
-    const fallback = puppy ? 'Your puppy' : 'Your cat';
-    catName.value = CatName.normalize(settings[puppy ? 'puppyName' : 'catName']);
+    const puppy = settings.searchCharacter === 'pomeranian', panda = settings.searchCharacter === 'panda';
+    const fallback = panda ? 'Your panda' : puppy ? 'Your puppy' : 'Your cat';
+    catName.value = CatName.normalize(settings[panda ? 'pandaName' : puppy ? 'puppyName' : 'catName']);
     catName.placeholder = fallback;
     document.getElementById('companionNameHeading').textContent = fallback + '’s name';
     document.getElementById('catNameHint').textContent = `Up to 24 characters. Leave empty to use “${fallback}”. Each companion keeps its own name on this computer.`;
@@ -223,7 +228,7 @@
   }
   renderCompanionName();
   catName.onchange = async () => {
-    const field = settings.searchCharacter === 'pomeranian' ? 'puppyName' : 'catName';
+    const field = settings.searchCharacter === 'panda' ? 'pandaName' : settings.searchCharacter === 'pomeranian' ? 'puppyName' : 'catName';
     const status = document.getElementById('catNameStatus');
     catName.disabled = true;
     document.getElementById('searchCharacter').disabled = true;

@@ -48,7 +48,8 @@
     modes: Object.freeze(['docked', 'roaming']),
     renderers: Object.freeze({docked: mountDockedDog, roaming: mountRoamingDog})
   });
-  const predefined = Object.freeze([cat, dog]);
+  const panda = Object.freeze({id:'panda',name:'Bamboo panda',type:'3d',items:Object.freeze({food:'bamboo',drink:'water',toy:'leaf'}),modes:Object.freeze(['docked','roaming']),renderers:Object.freeze({docked:mountDockedPanda,roaming:mountRoamingPanda})});
+  const predefined = Object.freeze([cat, dog, panda]);
   function mount(id, mode, container, options = {}) {
     const definition = predefined.find(entry => entry.id === id);
     if (!definition) throw new Error('Unknown predefined search character: ' + id);
@@ -88,6 +89,15 @@
     actions.runTo=(x,y,mode={})=>renderer.walkTo(x,y,{...mode,run:true});
     actions.lookAt=(...args)=>renderer.watchAt(...args);
     return {renderer,actions,icons:{}};
+  }
+  function mountRoamingPanda(container,options){
+    const engine=typeof Panda!=='undefined'?Panda:root.Panda;
+    return mountRoamingDog(container,{...options,engine,rendererOptions:{roaming:true},label:'Bamboo panda',jumpReaction:'happy'});
+  }
+  function mountDockedPanda(container,options){
+    const engine=typeof Panda!=='undefined'?Panda:root.Panda,renderer=engine.mount(container,options),actions={};
+    for(const name of ['blink','sit','sleep','wake','setName','setPersonality','searchCompleted','queryReset','giveCare','play','react','getPose','beginManualCare','updateManualCare','cancelManualCare'])actions[name]=(...args)=>renderer[name](...args);
+    return {renderer,actions,icons:{care:engine.careIcons,toy:engine.toyIcon}};
   }
   function mountDockedDog(container, options) {
     const engine = typeof Pomeranian !== 'undefined' ? Pomeranian : root.Pomeranian;
