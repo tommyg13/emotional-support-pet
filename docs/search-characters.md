@@ -48,8 +48,8 @@ The source GLB came from the user's Downloads archive
 Its textures are embedded. The unmodified source had no skeleton, morph targets
 or animation clips. The app now uses a conservative four-bone rig with Curious,
 HeadTilt, TailWag and Happy clips, plus bone, water bowl, ball and heart overlays.
-Typing occasionally triggers curiosity; food, water, play and completed searches
-trigger Happy. It cannot walk, sit or eat with a moving mouth. Manual delivery is unsupported. The cat's richer controls remain intact.
+Typing occasionally triggers a short glance toward the search input; food, water,
+play and completed searches trigger Happy. It cannot walk, sit or eat with a moving mouth. Manual delivery is unsupported. The cat's richer controls remain intact.
 
 All modules and model assets live under src and are included by the existing
 packaging rule. Three.js 0.180.0 and its MIT license are vendored under
@@ -85,3 +85,21 @@ Inspect the renders before replacing the packaged model. It does not overwrite
 the input file. The preview has separate head-turn, tilt and wag buttons, and
 front/side/back views to inspect the tail. Reduced motion keeps the skeleton at
 rest and shows static item feedback instead. Unsupported roaming remains blocked.
+
+## Live head gaze
+
+The puppy follows window-local pointer positions with its Head bone, rather than
+rotating the entire model. Yaw and pitch are bounded and eased. Search focus and
+typing occasionally override the pointer with a glance toward the input, then
+return to the pointer or neutral pose. Reactions take priority over tracking;
+TailWag can run alongside gaze. The unmodified animation quaternion is restored
+before each additive gaze update, preventing cumulative rotation drift.
+
+Pointer leave and window blur reset the pointer target. Reduced motion disables
+gaze movement. Gaze listeners are removed on destroy. `npm run check:pomeranian`
+runs an optional desktop Electron check using rendered pixels to verify visible
+head movement, stationary paws, stable gaze, blur reset, search glances and
+cleanup. `node --test` remains usable without a desktop session.
+
+Sitting remains unsupported. Separate prototype deformations distorted the
+fused rear fur and were not installed in the app or committed as usable assets.

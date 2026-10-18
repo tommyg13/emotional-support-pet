@@ -18,7 +18,8 @@ const Pomeranian = (() => {
     item.style.cssText='position:absolute;left:8%;bottom:12%;width:30px;height:30px;pointer-events:none;display:none;';host.appendChild(item);
     let dirty=true;
     let alive=true,raf=0,view,scene,model,camera,observer,visible=!document.hidden;
-    let effect=null,last=0,yaw=0,targetYaw=0,personality='calm',mixer,assetRoot,activeAction,lastCurious=-Infinity;
+    let effect=null,last=0,yaw=0,pitch=0,personality='calm',mixer,assetRoot,activeAction;
+    let pointer=null,searchLookUntil=0,nextSearchLook=0,head,headRest,headBase,yawAxis,pitchAxis,turn,nod;
     const actions=new Map();
     const clipNames={curious:'Curious',tilt:'HeadTilt',wag:'TailWag',water:'Happy',snack:'Happy',play:'Happy',celebrate:'Happy',happy:'Happy'};
     const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -46,14 +47,21 @@ const Pomeranian = (() => {
       item.style.display=['curious','tilt','wag'].includes(kind)?'none':'block';
       dirty=true;return true;
     }
-    function curiosity(){const now=performance.now();if(!effect&&now-lastCurious>=7000&&react('curious'))lastCurious=now;}
-    const onInput=()=>{if(input.value.trim())curiosity();};
-    const onFocus=curiosity;
-    const onMove=e=>{const b=host.getBoundingClientRect();targetYaw=Math.max(-.35,Math.min(.35,(e.clientX-b.left-b.width/2)/b.width*.5));};
-    const onLeave=()=>{targetYaw=0;};
+    function peekAtSearch(){
+      if(!alive||!input)return;
+      const now=performance.now();
+      if(now<searchLookUntil){searchLookUntil=Math.min(nextSearchLook-2500,now+1800);return;}
+      if(now<nextSearchLook||effect)return;
+      searchLookUntil=now+2200;nextSearchLook=now+7000;dirty=true;
+    }
+    const onInput=()=>{if(input.value.trim())peekAtSearch();};
+    const onFocus=peekAtSearch;
+    const onMove=e=>{pointer={x:e.clientX,y:e.clientY};};
+    const onLeave=()=>{pointer=null;};
+    const onBlur=()=>{pointer=null;searchLookUntil=0;};
     const onVisibility=()=>{visible=!document.hidden;dirty=true;};
     input?.addEventListener('input',onInput);input?.addEventListener('focus',onFocus);
-    host.addEventListener('pointermove',onMove);host.addEventListener('pointerleave',onLeave);
+    window.addEventListener('pointermove',onMove);document.addEventListener('pointerleave',onLeave);window.addEventListener('blur',onBlur);
     document.addEventListener('visibilitychange',onVisibility);
     const ready=(async()=>{
       try{
@@ -78,17 +86,30 @@ const Pomeranian = (() => {
         const scale=1.9/Math.max(size.x,size.y,size.z);
         asset.position.set(-center.x,-box.min.y,-center.z);const normalized=new T.Group();normalized.add(asset);normalized.scale.setScalar(scale);model.add(normalized);scene.add(model);
         asset.traverse(child=>{if(child.isMesh){child.frustumCulled=false;for(const m of Array.isArray(child.material)?child.material:[child.material]){m.roughness=.85;m.metalness=0;}}});
+        scene.updateMatrixWorld(true);head=asset.getObjectByName('Head');
+        if(head){
+          headRest=head.quaternion.clone();headBase=headRest.clone();const inverse=head.getWorldQuaternion(new T.Quaternion()).invert();
+          yawAxis=new T.Vector3(0,1,0).applyQuaternion(inverse).normalize();
+          pitchAxis=new T.Vector3(1,0,0).applyQuaternion(inverse).normalize();
+          turn=new T.Quaternion();nod=new T.Quaternion();
+        }
         const resize=()=>{const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;view.setSize(w,h,false);const a=w/h;camera.left=-1.25*a;camera.right=1.25*a;camera.top=1.25;camera.bottom=-1.25;camera.updateProjectionMatrix();dirty=true;};
         observer=new ResizeObserver(resize);observer.observe(host);resize();status.remove();host.dataset.state='ready';
         function frame(now){
           if(!alive)return;raf=requestAnimationFrame(frame);
           if(!visible||now-last<1000/30)return;const dt=Math.min(.1,(now-last)/1000);last=now;
-          if(!dirty&&!effect&&Math.abs(targetYaw-yaw)<.001)return;
-          renderFrame(now,dt);
+          let gaze=pointer;
+          if(input&&now<searchLookUntil){const r=input.getBoundingClientRect();gaze={x:r.left+r.width/2,y:r.top+r.height/2};}
+          const b=host.getBoundingClientRect(),canLook=!reduced&&(!effect||effect.kind==='wag');
+          const targetYaw=canLook&&gaze?Math.max(-.23,Math.min(.23,(gaze.x-b.left-b.width*.5)/240*.23)):0;
+          const targetPitch=canLook&&gaze?Math.max(-.09,Math.min(.12,(gaze.y-b.top-b.height*.3)/180*.12)):0;
+          if(!dirty&&!effect&&Math.abs(targetYaw-yaw)<.0001&&Math.abs(targetPitch-pitch)<.0001)return;
+          renderFrame(now,dt,targetYaw,targetPitch);
         }
-        function renderFrame(now,dt){
+        function renderFrame(now,dt,targetYaw,targetPitch){
           dirty=false;
-          yaw+=(targetYaw-yaw)*.15;model.rotation.y=yaw;model.rotation.z=0;model.position.y=0;
+          const blend=1-Math.exp(-dt*9);yaw+=(targetYaw-yaw)*blend;pitch+=(targetPitch-pitch)*blend;model.rotation.y=0;model.rotation.z=0;model.position.y=0;
+          if(head)head.quaternion.copy(headBase);
           const age=effect?(now-effect.start)/1000:10;
           if(effect&&age<effect.duration){
             mixer.update(dt);
@@ -98,6 +119,11 @@ const Pomeranian = (() => {
           }else {
             if(activeAction){mixer.stopAllAction();activeAction=null;}
             effect=null;item.style.display='none';
+          }
+          if(head){
+            if(!effect)head.quaternion.copy(headRest);
+            headBase.copy(head.quaternion);
+            head.quaternion.multiply(turn.setFromAxisAngle(yawAxis,yaw)).multiply(nod.setFromAxisAngle(pitchAxis,pitch));
           }
           view.render(scene,camera);
         }
@@ -119,7 +145,7 @@ const Pomeranian = (() => {
       giveCare:kind=>['water','snack'].includes(kind)&&react(kind),play:()=>react('play'),
       destroy(){if(!alive)return;alive=false;cancelAnimationFrame(raf);observer?.disconnect();
         input?.removeEventListener('input',onInput);input?.removeEventListener('focus',onFocus);
-        host.removeEventListener('pointermove',onMove);host.removeEventListener('pointerleave',onLeave);document.removeEventListener('visibilitychange',onVisibility);
+        window.removeEventListener('pointermove',onMove);document.removeEventListener('pointerleave',onLeave);window.removeEventListener('blur',onBlur);document.removeEventListener('visibilitychange',onVisibility);
         mixer?.stopAllAction();if(assetRoot)mixer?.uncacheRoot(assetRoot);actions.clear();
         disposeModel(model);view?.dispose();view?.forceContextLoss();host.remove();}
     };
