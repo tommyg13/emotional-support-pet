@@ -4,14 +4,89 @@ body.dock-stowed #wrap,body.dock-stowed #chat,body.dock-stowed #carriedCare{disp
 #stowPaws{display:none;position:absolute;right:15px;top:169px;z-index:7;pointer-events:none;color:#cba97e;gap:2px}#stowPaws svg{width:23px;height:23px;transform:rotate(90deg)}
 .dock-stow-push #stowPaws,.dock-stow-pull #stowPaws{display:flex}
 .dock-stow-busy #wrap{pointer-events:none}.dock-stow-busy #activityToggle{visibility:hidden}
-.dock-stow-push #cat{animation:buddyPush .7s ease-in-out forwards;transform-origin:65% 85%}
-.dock-stow-push #bar{animation:barFold .35s .3s ease-in forwards;transform-origin:right center}
-.dock-stow-pull #cat{animation:buddyPull .55s ease-out;transform-origin:65% 85%}
-.dock-stow-pull #bar{animation:barUnfold .55s ease-out;transform-origin:right center}
-@keyframes buddyPush{0%{transform:translate(0,0)}40%{transform:translate(45px,12px) rotate(7deg)}70%{transform:translate(58px,17px) rotate(9deg)}100%{transform:translate(70px,22px) scale(.93)}}
-@keyframes buddyPull{0%{transform:translate(70px,22px) scale(.93)}55%{transform:translate(25px,8px) rotate(-5deg)}100%{transform:translate(0,0)}}
-@keyframes barFold{from{transform:scaleX(1);opacity:1}to{transform:scaleX(.07);opacity:.25}}
-@keyframes barUnfold{from{transform:scaleX(.07);opacity:.25}to{transform:scaleX(1);opacity:1}}
-@media(prefers-reduced-motion:reduce){.dock-stow-push #cat,.dock-stow-push #bar,.dock-stow-pull #cat,.dock-stow-pull #bar{animation:none}}
+/* Descend, grab, tug twice, then squeeze into the lower-right paw. */
+.dock-stow-push #cat{animation:buddyPush 3.2s ease-in-out forwards;transform-origin:85% 100%;transition:none}
+.dock-stow-push #bar{animation:barFold 3.2s ease-in-out forwards;transform-origin:right bottom}
+.dock-stow-push #stowPaws{animation:handsFold 3.2s ease-in-out forwards}
+.dock-stow-pull #cat{animation:buddyPull 1.8s ease-in-out;transform-origin:85% 100%;transition:none}
+.dock-stow-pull #bar{animation:barUnfold 1.8s ease-in-out;transform-origin:right bottom}
+.dock-stow-pull #stowPaws{animation:handsUnfold 1.8s ease-in-out}
+.dock-stow-struggle #stowedPaw{animation:pawStruggle .85s ease-in-out;cursor:wait}
+/* The pet dives into the open sack before the search starts folding. */
+@keyframes buddyPush{
+ 0%,10%{transform:translate(0,0) scale(1);opacity:1}
+ 30%{transform:translate(45px,45px) scale(.9);opacity:1}
+ 42%{transform:translate(47px,45px) rotate(0deg) scale(.86);opacity:1}
+ 50%{transform:translate(32px,27px) rotate(12deg) scale(.55);opacity:1}
+ 61%,100%{transform:translate(17px,15px) rotate(24deg) scale(.025);opacity:0}
+}
+@keyframes barFold{
+ 0%,65%{transform:scale(1);opacity:1}
+ 77%{transform:translate(-12px,-12px) scale(.64,.72);opacity:1}
+ 89%{transform:translate(-27px,-28px) scale(.25,.42);opacity:1}
+ 97%,100%{transform:translate(-33px,-36px) scale(.015,.05);opacity:0}
+}
+@keyframes handsFold{
+ 0%{transform:translate(-44px,-45px);opacity:0}
+ 22%,34%{transform:translate(-28px,36px);opacity:1}
+ 48%{transform:translate(-9px,39px) rotate(10deg)}
+ 59%{transform:translate(-20px,36px)}
+ 74%{transform:translate(0,43px) rotate(12deg)}
+ 100%{transform:translate(9px,53px) scale(.05);opacity:0}
+}
+@keyframes pawStruggle{
+ 0%,100%{transform:scale(1)}
+ 20%{transform:scale(1.1,.88) rotate(-6deg)}
+ 38%{transform:scale(.94,1.12) rotate(5deg)}
+ 55%{transform:scale(1.12,.92) rotate(-4deg)}
+ 78%{transform:scale(1.13,1.1) rotate(3deg)}
+}
+@keyframes buddyPull{
+ 0%,65%{transform:translateY(60px) scale(.03);opacity:0}
+ 70%{transform:translateY(48px) scale(.25);opacity:1}
+ 84%{transform:translateY(-12px) scale(.78);opacity:1}
+ 94%{transform:translateY(3px) scale(.97)}
+ 100%{transform:translateY(0) scale(1);opacity:1}
+}
+@keyframes barUnfold{
+ 0%{transform:translateY(12px) scale(.025,.15);opacity:0}
+ 20%{transform:translateY(5px) scale(.28,.6);opacity:1}
+ 43%{transform:scale(.85,1.05)}
+ 58%{transform:scale(1.01,.97)}
+ 65%,100%{transform:scale(1);opacity:1}
+}
+@keyframes handsUnfold{
+ 0%{transform:translate(9px,53px) scale(.05);opacity:0}
+ 20%{transform:translate(0,43px) scale(.6);opacity:1}
+ 40%{transform:translate(-12px,35px) rotate(-12deg)}
+ 55%{transform:translate(-6px,38px)}
+ 78%{transform:translate(-35px,15px) rotate(-15deg);opacity:1}
+ 100%{transform:translate(-44px,-45px);opacity:0}
+}
+@media(prefers-reduced-motion:reduce){.dock-stow-push #cat,.dock-stow-push #bar,.dock-stow-pull #cat,.dock-stow-pull #bar,.dock-stow-push #stowPaws,.dock-stow-pull #stowPaws,.dock-stow-struggle #stowedPaw{animation:none}}
 
 .dock-stow-busy #cat,.dock-stow-busy #chat{pointer-events:none}
+/* Pack the accessories too, so nothing remains floating above the folded search. */
+.dock-stow-push #care{animation:accessoriesPack 3.2s ease-in-out forwards;transform-origin:right bottom}
+.dock-stow-pull #care{animation:accessoriesReturn 1.8s ease-out}
+.dock-stow-busy #resizeDock{visibility:hidden}
+@keyframes accessoriesPack{0%{transform:translate(0,0) scale(1);opacity:1}10%,100%{transform:translate(220px,65px) scale(0);opacity:0}}
+@keyframes accessoriesReturn{0%,40%{transform:translate(220px,65px) scale(0);opacity:0}60%,100%{transform:translate(0,0) scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){.dock-stow-push #care,.dock-stow-pull #care{animation:none}}
+
+#stowSack{display:none;position:absolute;right:12px;bottom:12px;width:78px;height:86px;z-index:500;pointer-events:none;transform-origin:70% 85%}
+#stowSack svg{width:100%;height:100%}
+.dock-stow-push #stowSack{display:block;animation:sackPack 3.2s ease-in-out forwards}
+.dock-stow-push #stowPaws,.dock-stow-pull #stowPaws{display:none}
+.dock-stow-walking-cat #cat{visibility:hidden}
+#stowWalkingCat{pointer-events:none!important}
+/* Animate around the arrived feet, separately from the walking renderer’s translation. */
+#stowWalkingShell{position:absolute;inset:0;z-index:6;pointer-events:none;transform-origin:455px 227px;animation:walkingCatPack 2.85s linear forwards}
+#stowWalkingCat svg{pointer-events:none!important}
+#stowNote[hidden]{display:none}
+@keyframes sackPack{0%,30%{opacity:0;scale:.1}40%{opacity:1;scale:1}61%{opacity:1;scale:1.08 .96}67%{opacity:1;scale:1}90%{opacity:1;scale:1.12 1.05}97%{opacity:1;scale:.9 1.12}100%{opacity:0;scale:.08}}
+@keyframes walkingCatPack{0%,30%{scale:1;rotate:0deg;translate:0 0;opacity:1}41%{scale:.6;rotate:12deg;translate:14px -18px;opacity:1}55%,100%{scale:.02;rotate:24deg;translate:54px -35px;opacity:0}}
+@media(prefers-reduced-motion:reduce){.dock-stow-push #stowSack,#stowWalkingShell{animation:none}}
+
+#stowNote{position:absolute;left:32px;top:20px;max-width:236px;z-index:8;padding:12px 16px;box-sizing:border-box;background:#fff5e9;border:1px solid #e0ccbd;border-radius:18px;color:#665146;font:13px/1.4 system-ui;overflow-wrap:anywhere;pointer-events:none}
+#stowNote::after{content:'';position:absolute;right:-7px;bottom:12px;width:12px;height:12px;background:#fff5e9;border-right:1px solid #e0ccbd;border-top:1px solid #e0ccbd;transform:rotate(45deg)}

@@ -68,7 +68,7 @@ const WalkingCat = (() => {
     let watchPoint=null,watchUntil=-1;
     let pointer = null, raf = 0, last = performance.now();
 
-    const bounds = () => o.desktop ? {minY:Math.min(160,innerHeight*.4),maxY:innerHeight-16,minX:100,maxX:Math.max(100,innerWidth-100)} : ({ minY: innerHeight * 0.28, maxY: innerHeight - o.margin, minX: o.margin, maxX: innerWidth - o.margin });
+    const bounds = () => o.bounds ? o.bounds() : o.desktop ? {minY:Math.min(160,innerHeight*.4),maxY:innerHeight-16,minX:100,maxX:Math.max(100,innerWidth-100)} : ({ minY: innerHeight * 0.28, maxY: innerHeight - o.margin, minX: o.margin, maxX: innerWidth - o.margin });
     const depth = (y) => { const b = bounds(); return o.scale * lerp(o.minDepth, 1, (y - b.minY) / (b.maxY - b.minY)); };
     const finish = (ok) => { const r = S.resolve; S.resolve = null; S.target = null; if (r) r(ok); };
 

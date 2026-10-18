@@ -40,7 +40,7 @@
 <p class="sub">Click one to pick it. The next press of the heart button brings it up.</p>
 <nav class="tabs" role="tablist" aria-label="Settings sections">
 <button class="tab" role="tab" aria-selected="true" aria-controls="tab-pets" id="btn-pets" data-tab="pets">🐾 Pets</button>
-<button class="tab" role="tab" aria-selected="false" aria-controls="tab-search" id="btn-search" data-tab="search">🔎 Search Cat</button>
+<button class="tab" role="tab" aria-selected="false" aria-controls="tab-search" id="btn-search" data-tab="search">🔎 Search Pet</button>
 <button class="tab" role="tab" aria-selected="false" aria-controls="tab-ai" id="btn-ai" data-tab="ai">💬 AI</button>
 <button class="tab" role="tab" aria-selected="false" aria-controls="tab-dev" id="btn-dev" data-tab="dev" hidden>🛠 Developer</button>
 </nav>
@@ -59,9 +59,9 @@
 <p id="aiStatus" role="status" class="hint" style="margin:0"></p>
 <p class="hint" style="margin:0">Turn AI ON beside Send to chat. Messages go directly to your selected provider using your API account. Keys are encrypted on this computer. Chat history stays in memory until you close the dock or start a new chat.</p>
 </div>
-</section><section id="tab-search" class="tab-panel" role="tabpanel" aria-labelledby="btn-search" hidden><h2>Search Cat</h2>
-<label class="toggle"><input type="checkbox" id="dockToggle"> Show the search dock (cat with a search bar)</label>
-<p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the cat to move it.</p>
+</section><section id="tab-search" class="tab-panel" role="tabpanel" aria-labelledby="btn-search" hidden><h2>Search Pet</h2>
+<label class="toggle"><input type="checkbox" id="dockToggle"> Show the search dock (pet with a search bar)</label>
+<p class="hint">Enter opens a web search in your browser. Focus it with Ctrl/Cmd + Shift + S. Drag the pet to move it.</p>
 
 <h2>Search character</h2>
 <div class="row"><label>Companion <select id="searchCharacter"><option value="wizard-cat">Wizard cat · SVG</option><option value="pomeranian">Pomeranian · 3D</option><option value="panda">Bamboo panda · 3D</option></select></label></div>
@@ -71,10 +71,10 @@
 <div class="row"><label>Name <input id="catName" type="text" placeholder="Your cat" maxlength="48" autocomplete="off" aria-describedby="catNameHint"></label></div>
 <p id="catNameHint" class="hint">Up to 24 characters. Leave empty to use “Your cat”. Saved on this computer.</p>
 <p id="catNameStatus" class="hint" role="status"></p>
-<h2>Cat personality</h2>
-<p class="hint">Choose how lively your cat feels. All personalities work offline. Sleepy rests sooner; Playful is more expressive.</p>
+<h2>Pet personality</h2>
+<p class="hint">Choose how lively your pet feels. All personalities work offline. Sleepy rests sooner; Playful is more expressive.</p>
 <div class="row"><label>Personality <select id="catPersonality"><option value="calm">Calm — gentle, subtle</option><option value="playful">Playful — curious and energetic</option><option value="sleepy">Sleepy — relaxed and drowsy</option></select></label></div>
-<h2>Search Cat breaks</h2>
+<h2>Search Pet breaks</h2>
 <label class="toggle"><input type="checkbox" id="breakEnabled"> Enable gentle break reminders</label>
 <p class="hint">After continuous computer activity, a larger cat appears. Close or snooze it for 15 minutes. Time away from the computer does not count.</p>
 <div class="row"><label>Remind me every <select id="breakMinutes"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option><option value="120">120 minutes</option></select></label></div>

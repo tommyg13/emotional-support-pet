@@ -451,7 +451,7 @@ const Pomeranian = (() => {
         return false;
       }
     })();
-    return {element:host,ready,react,blink,pickUp,releasePickup,sit:()=>restPose('sit'),sleep:()=>restPose('sleep'),wake,isResting:()=>!!posture,setHeading,setLocomotion,getTurnRemaining:()=>Math.abs(angleDelta(bodyYaw,targetBodyYaw)),beginManualCare,updateManualCare,cancelManualCare,getCareTarget,
+    return {element:host,ready,setPackingPhase(phase){if(!alive||failed||!camera||!model)return false;if(phase==='walk'){setHeading(1,0);return setLocomotion('walk',65);}setLocomotion('idle');if(phase==='bag'){targetBodyYaw=Math.atan2(camera.position.x,camera.position.z)+Math.PI;}else{bodyYaw=targetBodyYaw=0;}dirty=true;return true;},react,blink,pickUp,releasePickup,sit:()=>restPose('sit'),sleep:()=>restPose('sleep'),wake,isResting:()=>!!posture,setHeading,setLocomotion,getTurnRemaining:()=>Math.abs(angleDelta(bodyYaw,targetBodyYaw)),beginManualCare,updateManualCare,cancelManualCare,getCareTarget,
       get animationNames(){return Object.freeze([...actions.keys(),...gaitActions.keys(),...postureActions.keys()]);},
       getPose:()=>posture?posture.kind==='sleep'?'sleeping':posture.kind==='sit'?'sitting':posture.kind==='pickup'?'held':posture.kind==='landing'?'landing':'waking':ballSession?'playing':gait?(gait.kind==='run'?'running':'walking'):effect?.kind||'idle',
       setView:name=>{

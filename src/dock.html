@@ -176,6 +176,7 @@
     <div id="chatStatus" role="status"></div><div id="usage">Tokens appear after a reply.</div>
   </section>
   <script src="typing-cat.js"></script>
+  <script src="walking-cat.js"></script>
   <script src="companion-life.js"></script>
 <script src="companion-interaction.js"></script><script src="companion-rest.js"></script><script src="companion-idle.js"></script><script src="companion-ball.js"></script><script src="pomeranian.js"></script><script src="panda.js"></script>
   <script src="search-character.js"></script>
@@ -494,7 +495,7 @@ const activities=CompanionActivities.mountDock({root:document.getElementById('wr
 const resetActivities=()=>activities.resetTransient();window.addEventListener('companion-character-changed',resetActivities);window.addEventListener('companion-mode-changed',resetActivities);
 window.addEventListener('beforeunload',()=>{activities.destroy();window.removeEventListener('companion-character-changed',resetActivities);window.removeEventListener('companion-mode-changed',resetActivities);});
 </script><script src="dock-stow-ui.js"></script><script>
-const dockStowControl=DockStowUI.mount({root:document.getElementById('wrap'),getController:()=>catController,isRoaming:()=>catRoaming,request:value=>api.dockStow(value),subscribe:cb=>api.onDockStow(cb),onBefore:()=>activities.resetTransient()});
+const dockStowControl=DockStowUI.mount({getPersonality:()=>currentPersonality,root:document.getElementById('wrap'),getController:()=>catController,isRoaming:()=>catRoaming,request:value=>api.dockStow(value),subscribe:cb=>api.onDockStow(cb),onBefore:()=>activities.resetTransient()});
 window.addEventListener('beforeunload',()=>dockStowControl.destroy());
 </script></body>
 

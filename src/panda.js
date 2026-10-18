@@ -21,18 +21,27 @@ const Panda=(()=>{
   const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,actions=new Map(),eyes=[],props=[];
   let alive=true,failed=false,raf=0,observer,renderer,scene,camera,model,asset,mixer,head,headBase,turn,nod,yawAxis,pitchAxis,mouthAnchor,mouthRight,projection,rightProjection,active=null;
   let asleep=false,delivery=null,carry=null,playSession=null,gesture=null,personality='calm',name='',pointer=null,searchUntil=0,quoteTimer=null,quoteEpoch=0,last=0,lastDraw=0,dirty=true,surfaceVisible=true;
-  let seated=!roaming,locomotion=null,pickedUp=false,landingUntil=0,bodyYaw=0,targetBodyYaw=0,wakeTimer=null,wakeResolve=null,waking=null,pickupEpoch=0;
+  let packing=false,seated=!roaming,locomotion=null,pickedUp=false,landingUntil=0,bodyYaw=0,targetBodyYaw=0,wakeTimer=null,wakeResolve=null,waking=null,pickupEpoch=0;
   const angleDelta=(a,b)=>Math.atan2(Math.sin(b-a),Math.cos(b-a));
   function cancelWake(){clearTimeout(wakeTimer);wakeTimer=null;wakeResolve?.(false);wakeResolve=null;waking=null;}
   function idlePose(){activate(roaming&&!seated?'Stand':'SeatedIdle',roaming&&!seated);}
   function setHeading(dx,dy=0){if(!alive||failed||!camera||![dx,dy].every(Number.isFinite)||Math.hypot(dx,dy)<.001)return false;const azimuth=Math.atan2(camera.position.x,camera.position.z);targetBodyYaw=Math.atan2(dx*Math.cos(azimuth)+dy*Math.sin(azimuth),-dx*Math.sin(azimuth)+dy*Math.cos(azimuth));if(reduced)bodyYaw=targetBodyYaw;dirty=true;return true;}
   function setLocomotion(kind,velocity=0){
-   if(!alive||failed||!roaming||!model||!['idle','walk','run'].includes(kind))return false;
+   if(!alive||failed||(!roaming&&!packing)||!model||!['idle','walk','run'].includes(kind))return false;
    if(kind==='idle'||reduced){if(locomotion){locomotion=null;if(!asleep&&!seated&&!pickedUp)idlePose();}return true;}
    if(!Number.isFinite(velocity)||velocity<=0||asleep||seated||waking||pickedUp)return false;
    rest.activity();if(locomotion!==kind){const phase=locomotion&&active?(active.time/active.getClip().duration)%1:0;locomotion=kind;activate(kind==='run'?'Run':'Walk');active.time=phase*active.getClip().duration;}
    const stride=kind==='run'?.22:.16,duration=kind==='run'?.6:.8,pixelsPerSource=host.clientHeight*(1.9/2.7)/2.6;
    active.setEffectiveTimeScale(Math.max(.15,Math.min(3.5,velocity/(2*stride/(duration*.5)*pixelsPerSource))));dirty=true;return true;
+  }
+  // A temporary dock presentation uses the same skeletal walk as the roaming panda.
+  function setPackingPhase(phase){
+   if(!alive||failed||!model)return false;
+   cancelWake();cancelInteraction();asleep=false;pickedUp=false;waking=null;
+   if(phase==='walk'){packing=true;seated=false;setHeading(1,0);setLocomotion('walk',65);}
+   else if(phase==='bag'){locomotion=null;activate('Stand',true);targetBodyYaw=Math.atan2(camera.position.x,camera.position.z)+Math.PI;dirty=true;}
+   else{packing=false;locomotion=null;seated=!roaming;bodyYaw=targetBodyYaw=0;idlePose();dirty=true;}
+   return true;
   }
   function pickUp(){
    if(!alive||failed||!model||!roaming)return false;const epoch=++pickupEpoch;
@@ -121,9 +130,9 @@ const Panda=(()=>{
     if(!alive||failed)return;raf=requestAnimationFrame(frame);if(now-last<1000/30)return;const dt=Math.min(.1,(now-last)/1000);last=now;
     const visible=!document.hidden&&host.checkVisibility({checkVisibilityCSS:true});if(!visible){if(surfaceVisible){surfaceVisible=false;onBlur();}life.pause({sleeping:asleep});rest.pause();idle.pause();return;}if(!surfaceVisible){surfaceVisible=true;dirty=true;}
     if(landingUntil&&now>=landingUntil){landingUntil=0;idlePose();}
-    const busy=!!(delivery||carry||playSession||gesture||locomotion||pickedUp||waking||landingUntil);const restKind=rest.tick({busy,visible:true});if(restKind==='sleep')sleep();else if(restKind==='sit'&&roaming)sit(true);const idleKind=idle.tick({busy:busy||asleep||(roaming&&seated)||quoteTimer!==null,visible:true,reduced});if(idleKind)react(idleKind);
+    const busy=!!(packing||delivery||carry||playSession||gesture||locomotion||pickedUp||waking||landingUntil);const restKind=rest.tick({busy,visible:true});if(restKind==='sleep')sleep();else if(restKind==='sit'&&roaming)sit(true);const idleKind=idle.tick({busy:busy||asleep||(roaming&&seated)||quoteTimer!==null,visible:true,reduced});if(idleKind)react(idleKind);
     const face=life.sample({sleeping:asleep,busy,visible:true,reduced});const animate=!reduced&&(!asleep||face.fast||active?.isRunning());
-    if(!dirty&&!busy&&!animate&&Math.abs(face.blink-lastEye)<.001)return;
+    if(!dirty&&!busy&&!packing&&!animate&&Math.abs(face.blink-lastEye)<.001)return;
     if(!dirty&&!busy&&!face.fast&&now-lastDraw<100)return;const renderDt=Math.min(.15,(now-lastDraw)/1000);lastDraw=now;dirty=false;
     // Restore the pre-look orientation before the mixer; gaze never accumulates.
     const remaining=angleDelta(bodyYaw,targetBodyYaw);bodyYaw+=Math.sign(remaining)*Math.min(Math.abs(remaining)*(1-Math.exp(-renderDt*8)),renderDt*4.2);model.rotation.y=bodyYaw;
@@ -142,7 +151,7 @@ const Panda=(()=>{
    }
    raf=requestAnimationFrame(frame);return true;
   }catch(error){fail(error);return false;}})();
-  return {element:host,ready,getPose:()=>failed?'error':!model?'loading':pickedUp?'held':landingUntil?'landing':waking?'waking':asleep?'sleeping':locomotion==='run'?'running':locomotion?'walking':delivery?'eating':playSession?'playing':seated?'sitting':'standing',setHeading,setLocomotion,pickUp,releasePickup,isResting:()=>asleep||seated||!!waking,getTurnRemaining:()=>Math.abs(angleDelta(bodyYaw,targetBodyYaw)),getCareTarget,beginManualCare,updateManualCare,cancelManualCare,giveCare:kind=>deliver(kind),play,react,blink,sit,sleep,wake,
+  return {element:host,ready,setPackingPhase,getPose:()=>failed?'error':!model?'loading':pickedUp?'held':landingUntil?'landing':waking?'waking':asleep?'sleeping':locomotion==='run'?'running':locomotion?'walking':delivery?'eating':playSession?'playing':seated?'sitting':'standing',setHeading,setLocomotion,pickUp,releasePickup,isResting:()=>asleep||seated||!!waking,getTurnRemaining:()=>Math.abs(angleDelta(bodyYaw,targetBodyYaw)),getCareTarget,beginManualCare,updateManualCare,cancelManualCare,giveCare:kind=>deliver(kind),play,react,blink,sit,sleep,wake,
    searchCompleted:()=>react('celebrate'),queryReset:()=>react('curious'),setName:value=>{name=typeof value==='string'?Array.from(value.replace(/[\u0000-\u001f\u007f-\u009f]/g,' ').replace(/\s+/g,' ').trim()).slice(0,24).join(''):'';},
    setPersonality:value=>{personality=Object.hasOwn(lines,value)?value:'calm';life.setPersonality(personality);rest.setPersonality(personality);idle.setPersonality(personality);if(asleep)rest.setPose('sleep');else if(roaming&&seated)rest.setPose('sit');},
    destroy(){if(!alive)return;pickupEpoch++;cancelWake();cancelInteraction();alive=false;clearTimeout(slowLoad);cancelAnimationFrame(raf);observer?.disconnect();life.destroy();rest.destroy();idle.destroy();input?.removeEventListener('input',onInput);input?.removeEventListener('focus',onInput);window.removeEventListener('pointermove',onMove);document.removeEventListener('pointerleave',onLeave);window.removeEventListener('blur',onBlur);document.removeEventListener('visibilitychange',onVisibility);renderer?.domElement.removeEventListener('webglcontextlost',contextLost);mixer?.stopAllAction();if(asset)mixer?.uncacheRoot(asset);actions.clear();eyes.length=0;props.length=0;dispose(model);renderer?.dispose();renderer?.forceContextLoss();host.remove();}
